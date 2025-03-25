@@ -1,2 +1,54 @@
-# ComfyUI_AudioTools
-A ComfyUI node containing multiple audio processing tools.
+[中文](README-CN.md)|[English](README.md)
+
+# Audio Processing Related ComfyUI Nodes
+
+Audio is the bridge connecting text, video, and images. Videos without audio or text are bland. This project currently includes the following main nodes:
+- Automatically add subtitles to videos
+- Arbitrary time scale audio cropping
+- Audio volume, speed, pitch, echo processing, etc.
+- Remove silent parts from audio
+- Recording
+
+Examples:
+
+1, Add subtitles to video:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_14-00-28.png)
+
+2, Combine [ComfyUI_EraX-WoW-Turbo](https://github.com/billwuhao/ComfyUI_EraX-WoW-Turbo) for automatic speech recognition, and then add subtitles to the video:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-33-54.png)
+
+3, Combine [ComfyUI_EraX-WoW-Turbo](https://github.com/billwuhao/ComfyUI_EraX-WoW-Turbo), [ComfyUI_gemmax](https://github.com/billwuhao/ComfyUI_gemmax), [ComfyUI_SparkTTS](https://github.com/billwuhao/ComfyUI_SparkTTS), [ComfyUI-LatentSyncWrapper](https://github.com/ShmuelRonen/ComfyUI-LatentSyncWrapper) for automatic speech recognition, automatic translation, automatic voice cloning, automatic lip sync, automatic subtitle addition to video (detailed example workflow [workflow-examples](./workflow-examples)):
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250326001631.png)
+
+4, Arbitrary time scale cropping of audio:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-14-52.png)
+
+5, Audio volume, speed, pitch, echo processing, etc.:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-02-40.png)
+
+6, Remove silent parts from audio and recording:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-20-30.png)
+
+## 📣 Updates
+
+[2025-03-26]⚒️: Released version v1.0.0.
+
+## Installation
+
+Install sox and add it to the system path.
+
+```
+cd ComfyUI/custom_nodes
+git clone https://github.com/billwuhao/ComfyUI_AudioTools.git
+cd ComfyUI_AudioTools
+pip install -r requirements.txt
+
+# python_embeded
+./python_embeded/python.exe -m pip install -r requirements.txt
+```

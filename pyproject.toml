@@ -1,0 +1,15 @@
+[project]
+name = "audiotools"
+description = "A ComfyUI node containing multiple audio processing tools."
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["sox", "librosa"]
+
+[project.urls]
+Repository = "https://github.com/billwuhao/ComfyUI_AudioTools"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "mw"
+DisplayName = "MW-ComfyUI_AudioTools"
+Icon = ""
