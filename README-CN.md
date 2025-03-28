@@ -8,6 +8,7 @@
 - 音频音量, 速度, 音高, 回音处理等
 - 去除音频中无声部分
 - 录音
+- 音频水印嵌入
 
 示例:
 
@@ -35,7 +36,15 @@
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-20-30.png)
 
+7, 音频水印嵌入(关闭水印嵌入, 如果有水印, 会自动检测):
+
+![](https://github.com/billwuhao/ComfyUI_CSM/blob/master/images/2025-03-18_14-43-49.png)
+
+- 如果要使用该节点, [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) 全部模型下载放到 `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` 目录下.
+
 ## 📣 更新
+
+[2025-03-28]⚒️: 增加水印嵌入节点. 
 
 [2025-03-26]⚒️: 发布版本 v1.0.0. 
 

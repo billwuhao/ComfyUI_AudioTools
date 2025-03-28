@@ -35,7 +35,15 @@ Examples:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-20-30.png)
 
+7, Audio Watermark Embedding (Disable watermark embedding; if a watermark exists, it will be automatically detected):
+
+![](https://github.com/billwuhao/ComfyUI_CSM/blob/master/images/2025-03-18_14-43-49.png)
+
+- To use this node, download all [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) models and place them in the `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` directory.
+
 ## 📣 Updates
+
+[2025-03-28]⚒️: Added watermark embedding node.
 
 [2025-03-26]⚒️: Released version v1.0.0.
 

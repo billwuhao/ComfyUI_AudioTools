@@ -7,6 +7,194 @@ import librosa
 import torch
 # import sounddevice as sd
 # from scipy import ndimage
+import ast
+import silentcipher
+import folder_paths
+
+
+models_dir = folder_paths.models_dir
+
+class AudioAddWatermark:
+    if torch.backends.mps.is_available():
+        device = "mps"
+    elif torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+
+    cached_model = None
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {
+                    "audio": ("AUDIO",),
+                    "add_watermark": ("BOOLEAN", {
+                        "default": False, 
+                        "tooltip": "Enable audio watermark embedding"
+                    }),
+                    "key": ("STRING", {
+                        "default": "[212, 211, 146, 56, 201]", 
+                        "tooltip": "Encryption key as list of integers (e.g. [212,211,146,56,201])"
+                    }),
+                    "unload_model": ("BOOLEAN", {
+                        "default": False,
+                        "tooltip": "Unload model from memory after use"
+                    })
+                    }
+                # "optional": {
+                #     "check_watermark": ("BOOLEAN", {"default": False, "tooltip": "Check if the audio contains watermark."}),
+                #     }
+                }
+
+
+    CATEGORY = "🎤MW/MW-Audio-Tools"
+    RETURN_TYPES = ("AUDIO", "STRING")
+    RETURN_NAMES = ("audio", "watermark")
+    FUNCTION = "watermarkgen"
+
+    def watermarkgen(self, audio, add_watermark, key, unload_model):
+        """Main watermark processing pipeline"""
+        watermarker = self.load_watermarker(device=self.device, use_cache=True)
+        audio_array, sample_rate = self.load_audio(audio)
+        # Ensure tensor on correct device
+        audio_array = audio_array.to(self.device)
+
+        if add_watermark:
+            key = self._parse_key(key)
+            audio_array, sample_rate = self.watermark(watermarker, audio_array, sample_rate, key)
+
+        watermark = self.verify(watermarker, audio_array, sample_rate)
+        if unload_model:
+            del watermarker
+            self.cached_model = None
+            torch.cuda.empty_cache()
+        
+        # Move data back to CPU before return
+        return ({"waveform": audio_array.unsqueeze(0).unsqueeze(0).cpu(), "sample_rate": sample_rate}, watermark)
+
+    @torch.inference_mode()
+    def watermark(self,
+        watermarker: silentcipher.server.Model,
+        audio_array: torch.Tensor,
+        sample_rate: int,
+        watermark_key: list[int],
+    ) -> tuple[torch.Tensor, int]:
+        # Ensure mono channel
+        if len(audio_array.shape) > 1 and audio_array.shape[0] > 1:
+            audio_array = audio_array.mean(dim=0)
+        
+        audio_array = audio_array.to(self.device)
+        
+        audio_array_44khz = torchaudio.functional.resample(
+            audio_array, 
+            orig_freq=sample_rate, 
+            new_freq=44100
+        ).to(self.device)
+        
+        # Ensure correct tensor shape (should be 1D)
+        if len(audio_array_44khz.shape) != 1:
+            audio_array_44khz = audio_array_44khz.reshape(-1)
+            
+        try:
+            # Enhance watermark strength by reducing SDR threshold
+            encoded, _ = watermarker.encode_wav(audio_array_44khz, 44100, watermark_key, calc_sdr=False, message_sdr=30)
+            
+            verify_result = watermarker.decode_wav(encoded, 44100, phase_shift_decoding=True)
+            
+            if not verify_result["status"]:
+                encoded, _ = watermarker.encode_wav(audio_array_44khz, 44100, watermark_key, calc_sdr=False, message_sdr=25)
+                verify_result = watermarker.decode_wav(encoded, 44100, phase_shift_decoding=True)
+        except Exception as e:
+            return audio_array, sample_rate
+
+        # Resample back to original rate if needed
+        output_sample_rate = min(44100, sample_rate)
+        if output_sample_rate != 44100:
+            encoded = torchaudio.functional.resample(
+                encoded, 
+                orig_freq=44100, 
+                new_freq=output_sample_rate
+            ).to(self.device)
+
+        return encoded, output_sample_rate
+
+    @torch.inference_mode()
+    def verify(self,
+        watermarker: silentcipher.server.Model,
+        watermarked_audio: torch.Tensor,
+        sample_rate: int,
+    ) -> str:
+        if len(watermarked_audio.shape) > 1 and watermarked_audio.shape[0] > 1:
+            watermarked_audio = watermarked_audio.mean(dim=0)
+            
+        if sample_rate != 44100:
+            watermarked_audio_44khz = torchaudio.functional.resample(
+                watermarked_audio, 
+                orig_freq=sample_rate, 
+                new_freq=44100
+            ).to(self.device)
+        else:
+            watermarked_audio_44khz = watermarked_audio.to(self.device)
+        
+        if len(watermarked_audio_44khz.shape) != 1:
+            watermarked_audio_44khz = watermarked_audio_44khz.reshape(-1)
+            
+        
+        # 尝试不同的解码参数
+        # 1. 使用相位偏移解码
+        result_phase = watermarker.decode_wav(watermarked_audio_44khz, 44100, phase_shift_decoding=True)
+        
+        # 2. 不使用相位偏移解码
+        result_no_phase = watermarker.decode_wav(watermarked_audio_44khz, 44100, phase_shift_decoding=False)
+        
+        # 使用两种方法中任一种成功的结果
+        if result_phase["status"]:
+            watermark = "Watermarked:" + str(result_phase["messages"][0])
+        elif result_no_phase["status"]:
+            watermark = "Watermarked:" + str(result_no_phase["messages"][0])
+        else:
+            watermark = "No watermarked"
+
+        return watermark
+
+
+    def load_watermarker(self, device: str = "cuda", use_cache = True) -> silentcipher.server.Model:
+        ckpt_path = os.path.join(models_dir, "TTS", "SilentCipher", "44_1_khz", "73999_iteration")
+        config_path = os.path.join(models_dir, ckpt_path, "hparams.yaml")
+
+        if not use_cache and self.cached_model is not None:
+            return self.cached_model
+        else:
+            model = silentcipher.get_model(
+                model_type="44.1k", 
+                ckpt_path=ckpt_path, 
+                config_path=config_path,
+                device=device,
+            )
+            self.cached_model = model
+            del model
+            torch.cuda.empty_cache()
+            
+        return self.cached_model
+
+
+    def _parse_key(self, key_string):
+        """Safely parse encryption key from string
+        Args:
+            key_string: String representation of key list
+        Returns:
+            List[int]: Parsed key sequence
+        """
+        try:
+            return ast.literal_eval(key_string)
+        except (ValueError, SyntaxError) as e:
+            raise ValueError(f"Invalid key format: {str(e)}")
+
+
+    def load_audio(self, audio) -> tuple[torch.Tensor, int]:
+        waveform = audio["waveform"].squeeze(0)
+        audio_array = waveform.mean(dim=0)
+        sample_rate = audio["sample_rate"]
+        return audio_array, int(sample_rate)
 
 
 class AdjustAudio:
@@ -313,6 +501,7 @@ from .AddSubtitlesToVideo import AddSubtitlesToTensor
 from .MWAudioRecorderAT import AudioRecorderAT
 
 NODE_CLASS_MAPPINGS = {
+    "AudioAddWatermark": AudioAddWatermark,
     "AdjustAudio": AdjustAudio,
     "TrimAudio": TrimAudio,
     "RemoveSilence": RemoveSilence,
@@ -322,6 +511,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "AudioAddWatermark": "Audio Watermark Embedding",
     "AdjustAudio": "Adjust Audio",
     "TrimAudio": "Trim Audio",
     "RemoveSilence": "Remove Silence",
