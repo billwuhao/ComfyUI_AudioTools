@@ -38,7 +38,7 @@
 
 7, 音频水印嵌入(关闭水印嵌入, 如果有水印, 会自动检测):
 
-![](https://github.com/billwuhao/ComfyUI_CSM/blob/master/images/2025-03-28_22-18-04.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-28_22-18-04.png)
 
 - 如果要使用该节点, [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) 全部模型下载放到 `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` 目录下.
 
