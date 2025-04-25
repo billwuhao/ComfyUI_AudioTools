@@ -139,14 +139,16 @@ class AudioConcatenate:
 
 
 class AudioAddWatermark:
-    if torch.backends.mps.is_available():
-        device = "mps"
-    elif torch.cuda.is_available():
-        device = "cuda"
-    else:
-        device = "cpu"
+    def __init__(self):
+        if torch.backends.mps.is_available():
+            device = "mps"
+        elif torch.cuda.is_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+        self.device = device
+        self.cached_model = None
 
-    cached_model = None
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
@@ -160,7 +162,7 @@ class AudioAddWatermark:
                         "tooltip": "Encryption key as list of integers (e.g. [212,211,146,56,201])"
                     }),
                     "unload_model": ("BOOLEAN", {
-                        "default": False,
+                        "default": True,
                         "tooltip": "Unload model from memory after use"
                     })
                     }
@@ -177,7 +179,18 @@ class AudioAddWatermark:
 
     def watermarkgen(self, audio, add_watermark, key, unload_model):
         """Main watermark processing pipeline"""
-        watermarker = self.load_watermarker(device=self.device, use_cache=True)
+        ckpt_path = os.path.join(models_dir, "TTS", "SilentCipher", "44_1_khz", "73999_iteration")
+        config_path = os.path.join(models_dir, ckpt_path, "hparams.yaml")
+
+        if self.cached_model is None:
+            self.cached_model = silentcipher.get_model(
+                model_type="44.1k", 
+                ckpt_path=ckpt_path, 
+                config_path=config_path,
+                device=self.device,
+            )
+
+        watermarker = self.cached_model
         audio_array, sample_rate = self.load_audio(audio)
         # Ensure tensor on correct device
         audio_array = audio_array.to(self.device)
