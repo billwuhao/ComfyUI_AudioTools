@@ -9,6 +9,7 @@
 - 去除音频中无声部分
 - 录音
 - 音频水印嵌入
+- 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行. 
 
 示例:
 
@@ -42,7 +43,13 @@
 
 - 如果要使用该节点, [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) 全部模型下载放到 `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` 目录下.
 
+8, 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行.
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
+
 ## 📣 更新
+
+[2025-04-25]⚒️: 字符串展示和编辑. 
 
 [2025-03-28]⚒️: 增加水印嵌入节点. 
 

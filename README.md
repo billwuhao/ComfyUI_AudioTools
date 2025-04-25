@@ -9,6 +9,7 @@ Audio is the bridge connecting text, video, and images. Videos without audio or 
 - Remove silent parts from audio
 - Recording
 - Audio Watermark Embedding
+- String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution
 
 Examples:
 
@@ -42,7 +43,13 @@ Examples:
 
 - To use this node, download all [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) models and place them in the `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` directory.
 
+8, String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
+
 ## 📣 Updates
+
+[2025-04-25]⚒️: String show and editing. 
 
 [2025-03-28]⚒️: Added watermark embedding node.
 

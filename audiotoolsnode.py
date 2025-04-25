@@ -14,6 +14,130 @@ import folder_paths
 
 models_dir = folder_paths.models_dir
 
+
+class AudioConcatenate:
+    """
+    ComfyUI node to concatenate two audio inputs with smart channel handling.
+
+    Inputs are expected in the format {"waveform": torch.Tensor, "sample_rate": int}.
+    The node concatenates waveform_a followed by waveform_b.
+    If sample rates differ, both waveforms are resampled to the maximum of the two rates.
+    Channel Handling Logic:
+    - If both inputs are mono (1 channel), output is mono.
+    - Otherwise (if either input is > 1 channel), output is stereo (2 channels).
+    - Mono (1) to Stereo (2) conversion is done by duplicating the channel.
+    - Multi-channel (> 2) to Stereo (2) conversion is done by a simple averaging downmix
+      (average all channels to mono, then duplicate for stereo). A warning is printed
+      as this is a basic downmix method.
+
+    Output is in the same {"waveform": torch.Tensor, "sample_rate": int} format,
+    with the higher sample rate and the determined output channel count (1 or 2).
+    """
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "audio_a": ("AUDIO",),
+                "audio_b": ("AUDIO",),
+            }
+        }
+
+    RETURN_TYPES = ("AUDIO",)
+    RETURN_NAMES = ("audio",)
+    FUNCTION = "concatenate"
+    CATEGORY = "🎤MW/MW-Audio-Tools"
+
+    def concatenate(self, audio_a, audio_b):
+        """
+        Concatenates two audio waveforms after resampling and smart channel adjustment.
+
+        Args:
+            audio_a (dict): First audio input {"waveform": tensor, "sample_rate": int}.
+            audio_b (dict): Second audio input {"waveform": tensor, "sample_rate": int}.
+
+        Returns:
+            tuple: A tuple containing the output audio dictionary.
+                   ({"waveform": concatenated_tensor, "sample_rate": max_sr},)
+        """
+        waveform_a = audio_a["waveform"]
+        sr_a = audio_a["sample_rate"]
+        waveform_b = audio_b["waveform"]
+        sr_b = audio_b["sample_rate"]
+
+        # --- Determine Target Sample Rate ---
+        final_sr = max(sr_a, sr_b)
+
+        # --- Resample if necessary ---
+        # Perform resampling before channel adjustment, as resampling doesn't change channels
+        resampled_waveform_a = waveform_a
+        if sr_a != final_sr:
+            print(f"Concatenate Audio Node: Resampling audio A from {sr_a} Hz to {final_sr} Hz")
+            resample_a = torchaudio.transforms.Resample(orig_freq=sr_a, new_freq=final_sr).to(waveform_a.device)
+            resampled_waveform_a = resample_a(waveform_a)
+
+        resampled_waveform_b = waveform_b
+        if sr_b != final_sr:
+            print(f"Concatenate Audio Node: Resampling audio B from {sr_b} Hz to {final_sr} Hz")
+            resample_b = torchaudio.transforms.Resample(orig_freq=sr_b, new_freq=final_sr).to(waveform_b.device)
+            resampled_waveform_b = resample_b(waveform_b)
+
+        # --- Determine Target Channels and Adjust ---
+        channels_a = resampled_waveform_a.shape[1]
+        channels_b = resampled_waveform_b.shape[1]
+
+        # Determine target channels based on the new rule
+        if channels_a == 1 and channels_b == 1:
+            target_channels = 1 # Both mono, output mono
+            print("Concatenate Audio Node: Both inputs are mono, output will be mono (1 channel).")
+        else:
+            target_channels = 2 # Otherwise, output stereo
+            print(f"Concatenate Audio Node: At least one input is not mono ({channels_a} vs {channels_b}), output will be stereo (2 channels).")
+
+
+        # Helper function to adjust channels of a single waveform
+        def adjust_channels(wf, current_channels, target_channels, name):
+            if current_channels == target_channels:
+                return wf
+            elif target_channels == 1 and current_channels > 1:
+                 # Should not happen based on the target_channels logic (we only target 1 if both inputs are 1)
+                 # but added as a safeguard/placeholder. Downmixing >1 to 1 would be needed here.
+                 print(f"Concatenate Audio Node Warning: Attempting to downmix {name} from {current_channels} to {target_channels} (mono). Simple average downmix applied.")
+                 # Simple average downmix to mono
+                 return wf.mean(dim=1, keepdim=True)
+            elif target_channels == 2:
+                if current_channels == 1:
+                    # Mono to Stereo: Duplicate the channel
+                    print(f"Concatenate Audio Node: Converting {name} from {current_channels} to {target_channels} channels (mono to stereo).")
+                    return wf.repeat(1, target_channels, 1) # repeat(batch_dim=1, channel_dim=target_channels, time_dim=1)
+                elif current_channels > 2:
+                    # Multi-channel to Stereo: Simple average downmix
+                    print(f"Concatenate Audio Node Warning: Converting {name} from {current_channels} to {target_channels} channels (multi-channel to stereo). Applying simple average downmix.")
+                    # Average all channels to get a mono signal, then duplicate for stereo
+                    mono_wf = wf.mean(dim=1, keepdim=True)
+                    return mono_wf.repeat(1, target_channels, 1)
+                # If current_channels == 2, it matches target_channels=2, handled by the first check.
+            else:
+                 # This case should also ideally not happen with target_channels being only 1 or 2
+                 raise RuntimeError(f"Concatenate Audio Node: Unsupported channel adjustment requested for {name}: from {current_channels} to {target_channels}.")
+
+        # Apply channel adjustment
+        adjusted_waveform_a = adjust_channels(resampled_waveform_a, channels_a, target_channels, "Audio A")
+        adjusted_waveform_b = adjust_channels(resampled_waveform_b, channels_b, target_channels, "Audio B")
+
+        # --- Concatenate ---
+        # Concatenate along the time dimension (dimension 2 for (batch, channels, time))
+        concatenated_waveform = torch.cat((adjusted_waveform_a, adjusted_waveform_b), dim=2)
+
+        # --- Prepare Output ---
+        output_audio = {
+            "waveform": concatenated_waveform,
+            "sample_rate": final_sr # Use the determined final sample rate
+        }
+
+        # Return the output wrapped in a tuple (ComfyUI requirement)
+        return (output_audio,)
+
+
 class AudioAddWatermark:
     if torch.backends.mps.is_available():
         device = "mps"
@@ -497,25 +621,23 @@ class RemoveSilence:
 #         return (final_audio,)
 
 
-from .AddSubtitlesToVideo import AddSubtitlesToTensor
-from .MWAudioRecorderAT import AudioRecorderAT
+class MultiLinePromptAT:
+    @classmethod
+    def INPUT_TYPES(cls):
+               
+        return {
+            "required": {
+                "multi_line_prompt": ("STRING", {
+                    "multiline": True, 
+                    "default": ""}),
+                },
+        }
 
-NODE_CLASS_MAPPINGS = {
-    "AudioAddWatermark": AudioAddWatermark,
-    "AdjustAudio": AdjustAudio,
-    "TrimAudio": TrimAudio,
-    "RemoveSilence": RemoveSilence,
-    # "AudioDenoising": AudioDenoising,
-    "AudioRecorderAT": AudioRecorderAT,
-    "AddSubtitlesToVideo": AddSubtitlesToTensor,
-}
+    CATEGORY = "🎤MW/MW-Audio-Tools"
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("prompt",)
+    FUNCTION = "promptgen"
+    
+    def promptgen(self, multi_line_prompt: str):
+        return (multi_line_prompt.strip(),)
 
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "AudioAddWatermark": "Audio Watermark Embedding",
-    "AdjustAudio": "Adjust Audio",
-    "TrimAudio": "Trim Audio",
-    "RemoveSilence": "Remove Silence",
-    # "AudioDenoising": "Audio Denoising",
-    "AudioRecorderAT": "MW Audio Recorder",
-    "AddSubtitlesToVideo": "Add Subtitles To Video",
-}
