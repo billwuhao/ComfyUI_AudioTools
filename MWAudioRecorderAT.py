@@ -11,8 +11,6 @@ class AudioRecorderAT:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                # 触发控制
-                "trigger": ("BOOLEAN", {"default": False}),
                 # 录音时长
                 "record_sec": ("INT", {
                     "default": 5, 
@@ -41,7 +39,10 @@ class AudioRecorderAT:
                     "step": 2  # 生成1,3,5,7
                 }),
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
-            }
+            },
+            "optional": {  # 可选参数
+                "enable": ("BOOLEAN", {"default": True}),
+            },
         }
 
     RETURN_TYPES = ("AUDIO",)
@@ -72,8 +73,8 @@ class AudioRecorderAT:
         smoothed = ndimage.uniform_filter(mask, size=(kernel_size, kernel_size))
         return np.clip(smoothed * 1.2, 0, 1)  # 增强边缘保留
 
-    def record_and_clean(self, trigger, record_sec, n_fft, sensitivity, smooth, sample_rate, seed):
-        if not trigger:
+    def record_and_clean(self, enable, record_sec, n_fft, sensitivity, smooth, sample_rate, seed):
+        if not enable:
             return (None,)
 
         sr = int(sample_rate)

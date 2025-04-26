@@ -1,11 +1,12 @@
 from .audiotoolsnode import *
-from .string_editor_node import *
-
+from .string_editor_node import StringEditorPersistentTempFileNode
+from .minimal_pause_node import MinimalPauseNode
 from .AddSubtitlesToVideo import AddSubtitlesToTensor
 from .MWAudioRecorderAT import AudioRecorderAT
 
 NODE_CLASS_MAPPINGS = {
     "StringEditorPersistentTempFileNode": StringEditorPersistentTempFileNode,
+    "MinimalPauseNode": MinimalPauseNode,
     "AudioConcatenate": AudioConcatenate,
     "AudioAddWatermark": AudioAddWatermark,
     "AdjustAudio": AdjustAudio,
@@ -19,6 +20,7 @@ NODE_CLASS_MAPPINGS = {
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "StringEditorPersistentTempFileNode": "Show or Edit String",
+    "MinimalPauseNode": "Pause Node",
     "AudioConcatenate": "Audio Concatenate",
     "AudioAddWatermark": "Audio Watermark Embedding",
     "AdjustAudio": "Adjust Audio",
