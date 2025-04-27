@@ -3,26 +3,30 @@
 # Audio Processing Related ComfyUI Nodes
 
 Audio is the bridge connecting text, video, and images. Videos without audio or text are bland. This project currently includes the following main nodes:
+- Pause workflow anywhere
 - Audio loading, customizable loading path, including subdirectories
   - Please rename the file `extra_help_file.yaml.example` to `extra_help_file.yaml` and remove the annotation `# `. Add a custom loading directory such as `audios_dir: D:\AIGC\ComfyUI-Data\audios_input`, Linux is `/`.
-- Pause workflow anywhere
+- String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution
 - Automatically add subtitles to videos
 - Arbitrary time scale audio cropping
 - Audio volume, speed, pitch, echo processing, etc.
 - Remove silent parts from audio
 - Recording
 - Audio Watermark Embedding
-- String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution
 
 Examples:
+
+- Pause workflow anywhere:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250426115357.png)
 
 - Audio loading:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
-- Pause workflow anywhere:
+-  String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution:
 
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250426115357.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
 
 - Add subtitles to video:
 
@@ -54,10 +58,6 @@ Examples:
 
   1, To use this node, download all [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) models and place them in the `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` directory.
   2, And execute `pip install git+https://github.com/SesameAILabs/silentcipher` install silentcipher.
-
--  String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution:
-
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
 
 ## 📣 Updates
 

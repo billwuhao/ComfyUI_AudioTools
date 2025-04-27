@@ -3,26 +3,30 @@
 # 音频处理等相关的 ComfyUI 节点
 
 音频是连接文本, 视频, 图像的桥梁, 没有音频或文字的视频是无味的. 这个项目目前包括以下几个主要节点:
+- 任何地方暂停工作流
 - 音频加载, 可自定义加载路径, 包含子目录
   - 请将 `extra_help_file.yaml.example` 文件改名为 `extra_help_file.yaml`, 并取消注释 `# `, 添加自定义加载目录如 `audios_dir: D:\AIGC\ComfyUI-Data\audios_input`, linux 是 `/`.
-- 任何地方暂停工作流
+- 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行. 
 - 视频自动添加字幕
 - 音频任意时间刻度裁剪
 - 音频音量, 速度, 音高, 回音处理等
 - 去除音频中无声部分
 - 录音
 - 音频水印嵌入
-- 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行. 
 
 示例:
+
+- 任何地方暂停工作流:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250426115357.png)
 
 - 音频加载:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
-- 任何地方暂停工作流:
+- 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行.
 
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250426115357.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
 
 - 视频添加字幕:
 
@@ -55,10 +59,6 @@
   1, 如果要使用该节点, [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) 全部模型下载放到 `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` 目录下.
 
   2, 并执行 `pip install git+https://github.com/SesameAILabs/silentcipher` 安装 silentcipher.
-
-- 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行.
-
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
 
 ## 📣 更新
 
