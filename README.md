@@ -18,7 +18,7 @@ Examples:
 
 - Audio loading:
 
-![](URL_ADDRESS.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
 - Pause workflow anywhere:
 

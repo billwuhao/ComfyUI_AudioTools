@@ -18,7 +18,7 @@
 
 - 音频加载:
 
-![](URL_ADDRESS.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
 - 任何地方暂停工作流:
 
