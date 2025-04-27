@@ -5,6 +5,7 @@ from .AddSubtitlesToVideo import AddSubtitlesToTensor
 from .MWAudioRecorderAT import AudioRecorderAT
 
 NODE_CLASS_MAPPINGS = {
+    "LoadAudioMW": LoadAudioMW,
     "StringEditorPersistentTempFileNode": StringEditorPersistentTempFileNode,
     "MinimalPauseNode": MinimalPauseNode,
     "AudioConcatenate": AudioConcatenate,
@@ -19,6 +20,7 @@ NODE_CLASS_MAPPINGS = {
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
+    "LoadAudioMW": "Load Audio @MW",
     "StringEditorPersistentTempFileNode": "Show or Edit String",
     "MinimalPauseNode": "Pause Node",
     "AudioConcatenate": "Audio Concatenate",

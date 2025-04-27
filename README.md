@@ -3,6 +3,8 @@
 # Audio Processing Related ComfyUI Nodes
 
 Audio is the bridge connecting text, video, and images. Videos without audio or text are bland. This project currently includes the following main nodes:
+- Audio loading, customizable loading path, including subdirectories
+  - Please rename the file `extra_help_file.yaml.example` to `extra_help_file.yaml` and remove the annotation `# `. Add a custom loading directory such as `audios_dir: D:\AIGC\ComfyUI-Data\audios_input`, Linux is `/`.
 - Pause workflow anywhere
 - Automatically add subtitles to videos
 - Arbitrary time scale audio cropping
@@ -13,6 +15,10 @@ Audio is the bridge connecting text, video, and images. Videos without audio or 
 - String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution
 
 Examples:
+
+- Audio loading:
+
+![](URL_ADDRESS.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
 - Pause workflow anywhere:
 
@@ -54,6 +60,8 @@ Examples:
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
 
 ## 📣 Updates
+
+[2025-04-28]⚒️: Audio loading, customizable loading path, including subdirectories. 
 
 [2025-04-26]⚒️: Pause workflow anywhere.
 

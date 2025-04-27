@@ -3,6 +3,8 @@
 # 音频处理等相关的 ComfyUI 节点
 
 音频是连接文本, 视频, 图像的桥梁, 没有音频或文字的视频是无味的. 这个项目目前包括以下几个主要节点:
+- 音频加载, 可自定义加载路径, 包含子目录
+  - 请将 `extra_help_file.yaml.example` 文件改名为 `extra_help_file.yaml`, 并取消注释 `# `, 添加自定义加载目录如 `audios_dir: D:\AIGC\ComfyUI-Data\audios_input`, linux 是 `/`.
 - 任何地方暂停工作流
 - 视频自动添加字幕
 - 音频任意时间刻度裁剪
@@ -13,6 +15,10 @@
 - 字符串展示和编辑, 如果启用编辑, 工作流会暂停执行, 编辑完后可点击 "继续工作流" 继续执行. 
 
 示例:
+
+- 音频加载:
+
+![](URL_ADDRESS.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
 - 任何地方暂停工作流:
 
@@ -55,6 +61,8 @@
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
 
 ## 📣 更新
+
+[2025-04-28]⚒️: 音频加载, 可自定义加载路径, 包含子目录. 
 
 [2025-04-26]⚒️: 任何地方暂停工作流. 
 

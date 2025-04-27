@@ -34,12 +34,12 @@ app.registerExtension({
              // No serialize needed usually for simple buttons
         });
 
-        // --- computeSize (Minimal Height) ---
-        widget.computeSize = function(width) {
-            // Enough height for the button and padding
-             const minHeight = 10;
-             return [width, minHeight];
-        }
+        // // --- computeSize (Minimal Height) ---
+        // widget.computeSize = function(width) {
+        //     // Enough height for the button and padding
+        //      const minHeight = 10;
+        //      return [width, minHeight];
+        // }
 
         // --- Button Click Handler ---
         button.addEventListener("click", async () => {

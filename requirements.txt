@@ -1,3 +1,4 @@
 sox
 librosa
-# git+https://github.com/SesameAILabs/silentcipher # Audio watermark required, please install it
+PyYAML
+git+https://github.com/SesameAILabs/silentcipher 

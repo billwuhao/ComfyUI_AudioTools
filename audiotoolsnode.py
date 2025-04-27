@@ -1,18 +1,193 @@
 import sox
 import tempfile
 import os
-from glob import glob
 import torchaudio
 import librosa
 import torch
-# import sounddevice as sd
-# from scipy import ndimage
 import ast
 import silentcipher
 import folder_paths
+import yaml
+from typing import List, Union, Optional
 
 
 models_dir = folder_paths.models_dir
+input_dir = folder_paths.get_input_directory()
+
+def get_path():
+    from pathlib import Path
+    import yaml
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    yaml_file = os.path.join(script_dir, "extra_help_file.yaml")
+    try:
+        # 尝试打开并加载 YAML 文件
+        with open(yaml_file, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+            audios_dir = data["audios_dir"]
+            audios_dir = Path(audios_dir)
+            print(f"Customize audios loading path: {audios_dir}")
+            return audios_dir
+    except FileNotFoundError:
+        print(f"Error: File not found - extra_help_file.yaml")
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML file: {e}")
+    except KeyError:
+        print(f"Error: Missing key 'audios_dir' in YAML file.")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+
+    # 如果加载失败，返回默认路径
+    print("No customize audios loading path found, use default path.")
+    return input_dir
+
+def get_all_files(
+    root_dir: str,
+    return_type: str = "list",
+    extensions: Optional[List[str]] = None,
+    exclude_dirs: Optional[List[str]] = None,
+    relative_path: bool = False
+) -> Union[List[str], dict]:
+    """
+    递归获取目录下所有文件路径
+    
+    :param root_dir: 要遍历的根目录
+    :param return_type: 返回类型 - "list"(列表) 或 "dict"(按目录分组)
+    :param extensions: 可选的文件扩展名过滤列表 (如 ['.py', '.txt'])
+    :param exclude_dirs: 要排除的目录名列表 (如 ['__pycache__', '.git'])
+    :param relative_path: 是否返回相对路径 (相对于root_dir)
+    :return: 文件路径列表或字典
+    """
+    file_paths = []
+    file_dict = {}
+    
+    # 规范化目录路径
+    root_dir = os.path.normpath(root_dir)
+    
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        # 处理排除目录
+        if exclude_dirs:
+            dirnames[:] = [d for d in dirnames if d not in exclude_dirs]
+        
+        current_files = []
+        for filename in filenames:
+            # 扩展名过滤
+            if extensions:
+                if not any(filename.lower().endswith(ext.lower()) for ext in extensions):
+                    continue
+            
+            # 构建完整路径
+            full_path = os.path.join(dirpath, filename)
+            
+            # 处理相对路径
+            if relative_path:
+                full_path = os.path.relpath(full_path, root_dir)
+            
+            current_files.append(full_path)
+        
+        if return_type == "dict":
+            # 使用相对路径或绝对路径作为键
+            dict_key = os.path.relpath(dirpath, root_dir) if relative_path else dirpath
+            if current_files:
+                file_dict[dict_key] = current_files
+        else:
+            file_paths.extend(current_files)
+    
+    return file_dict if return_type == "dict" else file_paths
+
+
+class LoadAudioMW:
+    audios_dir = get_path()
+    files = get_all_files(audios_dir, extensions=[".wav", ".mp3", ".flac", ".mp4", ".WAV", ".MP3", ".FLAC", ".MP4"], relative_path=True)
+    for i in files:
+        import shutil
+        src_path = folder_paths.get_annotated_filepath(i, audios_dir)
+        dst_path = os.path.join(input_dir, i)
+        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+        if not os.path.exists(dst_path):
+            shutil.copy2(src_path, dst_path)
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {
+                    "audio": (sorted(s.files),),
+                    "start_time_sec": ("FLOAT", {
+                        "default": 0.0,
+                        "min": 0.0,
+                        "max": 10000.0, # Arbitrarily high max
+                        "step": 0.01,
+                        "display": "number", # Use number input instead of slider
+                        "tooltip": "Start time of the slice in seconds"
+                        }),
+                    "duration_sec": ("FLOAT", {
+                        "default": 5.0,
+                        "min": 0.01, # Minimum duration slightly above zero
+                        "max": 10000.0, # Arbitrarily high max
+                        "step": 0.01,
+                        "display": "number",
+                        "tooltip": "Desired duration of the slice in seconds"
+                        }),
+                    },
+                }
+
+    CATEGORY = "🎤MW/MW-Audio-Tools"
+    RETURN_TYPES = ("AUDIO", )
+    FUNCTION = "load"
+
+    def load(self, audio, start_time_sec=0, duration_sec=5):
+        audio_path = os.path.join(LoadAudioMW.audios_dir, audio)
+        waveform, sample_rate = torchaudio.load(audio_path)
+        waveform = waveform.unsqueeze(0)
+        
+        if waveform is None or waveform.numel() == 0 or sample_rate <= 0:
+            print("Warning: SliceAudio received invalid input audio.")
+            # Return a silent, short audio clip as a fallback
+            empty_waveform = torch.zeros((1, 1, 1), dtype=waveform.dtype, device=waveform.device)
+            return ({"waveform": empty_waveform, "sample_rate": sample_rate if sample_rate > 0 else 44100}, 0.0)
+
+        # Ensure parameters are non-negative
+        start_time_sec = max(0.0, start_time_sec)
+        duration_sec = max(0.01, duration_sec) # Ensure minimum duration
+
+        # Use rounding for potentially better accuracy near frame boundaries
+        start_sample = round(start_time_sec * sample_rate)
+        num_samples_requested = round(duration_sec * sample_rate)
+
+        total_samples = waveform.shape[-1] # Get length from the last dimension
+
+        # Note: If start_sample == total_samples, the slice will be empty.
+        start_sample = max(0, min(start_sample, total_samples))
+
+        # The end sample for slicing is exclusive: [start:end]
+        actual_end_sample = min(start_sample + num_samples_requested, total_samples)
+
+        if start_sample >= actual_end_sample:
+            raise ValueError(f"Warning: SliceAudio requested slice starts at or after the calculated end ({start_sample} >= {actual_end_sample}). Returning empty audio.")
+            
+        else:
+            sliced_waveform = waveform[..., start_sample:actual_end_sample]
+
+        output_audio = {
+            "waveform": sliced_waveform,
+            "sample_rate": sample_rate
+        }
+
+        return (output_audio,)
+
+    # @classmethod
+    # def IS_CHANGED(s, audio):
+    #     import hashlib
+    #     audio_path = folder_paths.get_annotated_filepath(audio, s.audios_dir)
+    #     m = hashlib.sha256()
+    #     with open(audio_path, 'rb') as f:
+    #         m.update(f.read())
+    #     return m.digest().hex()
+
+    # @classmethod
+    # def VALIDATE_INPUTS(s, audio):
+    #     if not folder_paths.exists_annotated_filepath(audio + "[input]"):
+    #         return "Invalid audio file: {}".format(audio)
+
+    #     return True
 
 
 class AudioConcatenate:
