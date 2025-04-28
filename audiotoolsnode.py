@@ -26,6 +26,9 @@ def get_path():
             data = yaml.safe_load(f)
             audios_dir = data["audios_dir"]
             audios_dir = Path(audios_dir)
+            if not os.path.exists(audios_dir):
+                raise Exception(f"Customize audios loading path: {audios_dir} not exists.")
+                
             print(f"Customize audios loading path: {audios_dir}")
             return audios_dir
     except FileNotFoundError:
@@ -99,13 +102,13 @@ def get_all_files(
 class LoadAudioMW:
     audios_dir = get_path()
     files = get_all_files(audios_dir, extensions=[".wav", ".mp3", ".flac", ".mp4", ".WAV", ".MP3", ".FLAC", ".MP4"], relative_path=True)
-    for i in files:
-        import shutil
-        src_path = folder_paths.get_annotated_filepath(i, audios_dir)
-        dst_path = os.path.join(input_dir, i)
-        os.makedirs(os.path.dirname(dst_path), exist_ok=True)
-        if not os.path.exists(dst_path):
-            shutil.copy2(src_path, dst_path)
+    # for i in files:
+    #     import shutil
+    #     src_path = folder_paths.get_annotated_filepath(i, audios_dir)
+    #     dst_path = os.path.join(input_dir, i)
+    #     os.makedirs(os.path.dirname(dst_path), exist_ok=True)
+    #     if not os.path.exists(dst_path):
+    #         shutil.copy2(src_path, dst_path)
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {
@@ -139,10 +142,7 @@ class LoadAudioMW:
         waveform = waveform.unsqueeze(0)
         
         if waveform is None or waveform.numel() == 0 or sample_rate <= 0:
-            print("Warning: SliceAudio received invalid input audio.")
-            # Return a silent, short audio clip as a fallback
-            empty_waveform = torch.zeros((1, 1, 1), dtype=waveform.dtype, device=waveform.device)
-            return ({"waveform": empty_waveform, "sample_rate": sample_rate if sample_rate > 0 else 44100}, 0.0)
+            raise Exception("SliceAudio received invalid input audio.")
 
         # Ensure parameters are non-negative
         start_time_sec = max(0.0, start_time_sec)
@@ -161,8 +161,7 @@ class LoadAudioMW:
         actual_end_sample = min(start_sample + num_samples_requested, total_samples)
 
         if start_sample >= actual_end_sample:
-            raise ValueError(f"Warning: SliceAudio requested slice starts at or after the calculated end ({start_sample} >= {actual_end_sample}). Returning empty audio.")
-            
+            raise ValueError(f"SliceAudio requested slice starts at or after the calculated end ({start_sample} >= {actual_end_sample}).")
         else:
             sliced_waveform = waveform[..., start_sample:actual_end_sample]
 
