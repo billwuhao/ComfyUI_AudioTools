@@ -7,8 +7,10 @@ import torch
 import ast
 import silentcipher
 import folder_paths
-import yaml
 from typing import List, Union, Optional
+import json
+import io
+import struct
 
 
 models_dir = folder_paths.models_dir
@@ -99,6 +101,121 @@ def get_all_files(
     return file_dict if return_type == "dict" else file_paths
 
 
+class SaveAudioMW:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+        self.type = "output"
+        self.prefix_append = ""
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": { "audio": ("AUDIO", ),
+                              "format": (["WAV", "MP3", "FLAC"],),
+                              "filename_prefix": ("STRING", {"default": "audio/ComfyUI"}),
+                              },
+                "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+                }
+
+    RETURN_TYPES = ()
+    FUNCTION = "save_audio"
+
+    OUTPUT_NODE = True
+
+    CATEGORY = "🎤MW/MW-Audio-Tools"
+
+    def save_audio(self, audio, format, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
+        filename_prefix += self.prefix_append
+        full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir)
+
+        results = []
+        metadata = {}
+        if prompt is not None:
+            metadata["prompt"] = json.dumps(prompt)
+        if extra_pnginfo is not None:
+            for x in extra_pnginfo:
+                metadata[x] = json.dumps(extra_pnginfo[x])
+
+        for (batch_number, waveform) in enumerate(audio["waveform"].cpu()):
+            filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
+            file = f"{filename_with_batch_num}_{counter:05}_.{format.lower()}"
+
+            buff = io.BytesIO()
+            torchaudio.save(buff, waveform, audio["sample_rate"], format=format)
+
+            if format == "FLAC":
+                buff = self.insert_or_replace_vorbis_comment(buff, metadata)
+            elif metadata:
+                 print(("SaveAudioMW Warning: Metadata saving is currently only supported for FLAC format. "
+                        f"Skipping metadata for {format}"))
+
+            with open(os.path.join(full_output_folder, file), 'wb') as f:
+                f.write(buff.getbuffer())
+
+            results.append({
+                "filename": file,
+                "subfolder": subfolder,
+                "type": self.type
+            })
+            counter += 1
+
+        return { "ui": { "audio": results },}
+
+    # From ComfyUI
+    def create_vorbis_comment_block(self, comment_dict, last_block):
+        vendor_string = b'ComfyUI'
+        vendor_length = len(vendor_string)
+
+        comments = []
+        for key, value in comment_dict.items():
+            comment = f"{key}={value}".encode('utf-8')
+            comments.append(struct.pack('<I', len(comment)) + comment)
+
+        user_comment_list_length = len(comments)
+        user_comments = b''.join(comments)
+
+        comment_data = struct.pack('<I', vendor_length) + vendor_string + struct.pack('<I', user_comment_list_length) + user_comments
+        if last_block:
+            id = b'\x84'
+        else:
+            id = b'\x04'
+        comment_block = id + struct.pack('>I', len(comment_data))[1:] + comment_data
+
+        return comment_block
+
+    # From ComfyUI
+    def insert_or_replace_vorbis_comment(self, flac_io, comment_dict):
+        if len(comment_dict) == 0:
+            return flac_io
+
+        flac_io.seek(4)
+
+        blocks = []
+        last_block = False
+
+        while not last_block:
+            header = flac_io.read(4)
+            last_block = (header[0] & 0x80) != 0
+            block_type = header[0] & 0x7F
+            block_length = struct.unpack('>I', b'\x00' + header[1:])[0]
+            block_data = flac_io.read(block_length)
+
+            if block_type == 4 or block_type == 1:
+                pass
+            else:
+                header = bytes([(header[0] & (~0x80))]) + header[1:]
+                blocks.append(header + block_data)
+
+        blocks.append(self.create_vorbis_comment_block(comment_dict, last_block=True))
+
+        new_flac_io = io.BytesIO()
+        new_flac_io.write(b'fLaC')
+        for block in blocks:
+            new_flac_io.write(block)
+
+        new_flac_io.write(flac_io.read())
+        return new_flac_io
+
+
 class LoadAudioMW:
     audios_dir = get_path()
     files = get_all_files(audios_dir, extensions=[".wav", ".mp3", ".flac", ".mp4", ".WAV", ".MP3", ".FLAC", ".MP4"], relative_path=True)
@@ -169,24 +286,8 @@ class LoadAudioMW:
             "waveform": sliced_waveform,
             "sample_rate": sample_rate
         }
-
-        return (output_audio,)
-
-    # @classmethod
-    # def IS_CHANGED(s, audio):
-    #     import hashlib
-    #     audio_path = folder_paths.get_annotated_filepath(audio, s.audios_dir)
-    #     m = hashlib.sha256()
-    #     with open(audio_path, 'rb') as f:
-    #         m.update(f.read())
-    #     return m.digest().hex()
-
-    # @classmethod
-    # def VALIDATE_INPUTS(s, audio):
-    #     if not folder_paths.exists_annotated_filepath(audio + "[input]"):
-    #         return "Invalid audio file: {}".format(audio)
-
-    #     return True
+        
+        return {"result": (output_audio,)}
 
 
 class AudioConcatenate:
