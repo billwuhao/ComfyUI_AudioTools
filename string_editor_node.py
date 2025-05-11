@@ -52,6 +52,7 @@ class StringEditorPersistentTempFileNode:
         return {
             "required": {
                 "input_string": ("STRING", {"forceInput": True}),
+                "split_tag": ("STRING", {"default": "", "tooltip": "Split a string into two segments using a tag."}),
                 "pause": ("BOOLEAN", {"default": False}),
             },
             "hidden": {
@@ -61,20 +62,22 @@ class StringEditorPersistentTempFileNode:
             },
         }
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("edited_string",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("edited_string", "split_1", "split_2")
     FUNCTION = "edit_or_check_and_output"
     CATEGORY = "🎤MW/MW-Audio-Tools"
     OUTPUT_NODE = True
 
     def edit_or_check_and_output(self,
                     input_string: str,
+                    split_tag: str,
                     pause: bool,
                     unique_id: str,
                     prompt=None,
                     extra_pnginfo=None,
                     **kwargs
                     ):
+
         node_id = unique_id
         temp_file = get_persistent_temp_file_path(node_id)
         # --- REMOVE class variable self.current_input_string - it's not needed ---
@@ -145,6 +148,15 @@ class StringEditorPersistentTempFileNode:
                 time.sleep(0.02)
 
         # Final return logic
+        parts = ["", ""]
+        if split_tag.strip() != "" and split_tag in input_string:
+            parts = input_string.split(split_tag, 1)
+            if len(parts) > 1:
+                print("There are multiple tags in the string, only split by the first one.")
+
+        split_1 = parts[0].strip()
+        split_2 = parts[1].strip()
+
         if not pause:
             PromptServer.instance.send_sync("string_editor_persistent_tempfile_display", {
                 "node_id": node_id,
@@ -153,12 +165,12 @@ class StringEditorPersistentTempFileNode:
             })
             time.sleep(0.02)
             # If pause is off, return the current input string directly
-            return {"result": (input_string,)}
+            return {"result": (input_string, split_1, split_2)}
         else:
             # If pause is on, return Blocker or the value read from the file
             if should_block:
-                return {"result": (ExecutionBlocker(None),)}
+                return {"result": (ExecutionBlocker(None), ExecutionBlocker(None), ExecutionBlocker(None))}
             else:
                 # Ensure we have a valid output string (should be from file)
                 final_output = output_string if output_string is not None else current_input_string # Fallback just in case
-                return {"result": (final_output,)}
+                return {"result": (final_output, split_1, split_2)}
