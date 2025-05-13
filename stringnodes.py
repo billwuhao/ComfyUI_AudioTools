@@ -11,10 +11,10 @@ import hashlib
 
 class StringDisplayNode:
     @classmethod
-    def IS_CHANGED(cls, input_string, **kwargs):
+    def IS_CHANGED(cls, text, **kwargs):
         # Re-run only when the input string actually changes
         m = hashlib.sha256()
-        m.update(input_string.encode('utf-8')) # Encode string for hashing
+        m.update(text.encode('utf-8')) # Encode string for hashing
         return m.digest().hex()
 
     @classmethod
@@ -109,12 +109,13 @@ class StringPauseGateNode:
         # Takes any input type just to allow connection, but doesn't use it
         return {
             "required": {
-                 "text": ("STRING", {"forceInput": True}), 
+                "text": ("STRING", {"forceInput": True}), 
              },
             "optional": {
-                 "paste_edit_text": ("STRING", {"multiline": True, "default": "",}),
-                 "merge_text": ("BOOLEAN", {"default": False}),
-                 "enable_pause_gate": ("BOOLEAN", {"default": True}),
+                "split_tag": ("STRING", {"default": "",}),
+                "paste_edit_text": ("STRING", {"multiline": True, "default": "",}),
+                "merge_text": ("BOOLEAN", {"default": False}),
+                "enable_pause_gate": ("BOOLEAN", {"default": True}),
              },
             "hidden": {
                  "prompt": "PROMPT",
@@ -124,22 +125,23 @@ class StringPauseGateNode:
         }
 
     # Returns the same type it received
-    RETURN_TYPES = ("STRING", "STRING",)
-    RETURN_NAMES = ("text", "edited_text",)
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("text_or_split_1", "split_2", "edited_text",)
     FUNCTION = "pause_or_continue"
     CATEGORY = "🎤MW/MW-Audio-Tools" # Simple category
     OUTPUT_NODE = False
 
-    def pause_or_continue(self, text, paste_edit_text, merge_text, enable_pause_gate, unique_id: str, prompt=None, extra_pnginfo=None, **kwargs):
+    def pause_or_continue(self, text, unique_id: str, split_tag="", paste_edit_text="", merge_text=False, enable_pause_gate=True, prompt=None, extra_pnginfo=None, **kwargs):
         node_id = unique_id
-
         signal_file = get_signal_file_path(node_id)
-
+        str_1, str_2, str_3 = text, "", paste_edit_text
         if merge_text:
-            text = paste_edit_text = text + paste_edit_text
+            str_1, str_2, str_3 = text + paste_edit_text, "", text + paste_edit_text
+        elif split_tag.strip() and text.find(split_tag.strip()) > 0:
+            str_1, str_2, str_3 = text.split(split_tag, 1)[0], text.split(split_tag, 1)[1], paste_edit_text
 
         if not enable_pause_gate:
-            return {"result": (text, paste_edit_text)}
+            return {"result": (str_1, str_2, str_3)}
         else:
             if signal_file.exists():
                 # Signal file exists - User clicked Continue
@@ -148,10 +150,10 @@ class StringPauseGateNode:
                 except OSError as e:
                     print(f"Failed to delete signal file: {e}")
                 # Return the text data
-                return {"result": (text, paste_edit_text)}
+                return {"result": (str_1, str_2, str_3)}
             else:
                 # Send message to UI to enable the button
                 if hasattr(PromptServer, 'instance') and PromptServer.instance is not None:
                     PromptServer.instance.send_sync("string_pause_enable_button", { "node_id": node_id })
                 # Return ExecutionBlocker for the text output
-                return {"result": (ExecutionBlocker(None),)}
+                return {"result": (ExecutionBlocker(None),ExecutionBlocker(None),ExecutionBlocker(None))}
