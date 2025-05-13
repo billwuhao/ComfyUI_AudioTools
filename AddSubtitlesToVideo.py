@@ -4,21 +4,125 @@ from PIL import Image, ImageDraw, ImageFont
 import ast
 
 
+def parse_timestamp(timestamp_str):
+    # Remove leading/trailing whitespace and brackets
+    timestamp_str = timestamp_str.strip()
+    if not (timestamp_str.startswith('[') and timestamp_str.endswith(']')):
+        # Handle cases where brackets might be missing, though the format suggests they are present
+        # If strict format is required, could raise an error
+        print(f"Warning: Timestamp string missing brackets: {timestamp_str}")
+        inner_str = timestamp_str
+    else:
+        inner_str = timestamp_str[1:-1] # Remove '[' and ']'
+
+    try:
+        # Split into minutes and seconds.milliseconds
+        parts = inner_str.split(':')
+        if len(parts) != 2:
+            print(f"Warning: Timestamp format incorrect (expecting MM:SS.mmm): {timestamp_str}")
+            # Attempt to parse as seconds if possible
+            try:
+                return float(inner_str)
+            except ValueError:
+                print(f"Error parsing timestamp: {timestamp_str}. Returning 0.0.")
+                return 0.0
+
+        minutes_str = parts[0]
+        sec_milli_str = parts[1]
+
+        # Split seconds.milliseconds into seconds and milliseconds
+        sec_parts = sec_milli_str.split('.')
+        seconds_str = sec_parts[0]
+        milliseconds_str = sec_parts[1] if len(sec_parts) > 1 else '0' # Handle missing .mmm
+
+        # Convert to numbers
+        minutes = int(minutes_str)
+        seconds = int(seconds_str)
+        # Pad milliseconds with zeros if necessary (e.g., '5' -> '500')
+        milliseconds_str = milliseconds_str.ljust(3, '0') 
+        milliseconds = int(milliseconds_str[:3]) # Take only the first 3 digits
+
+        total_seconds = float(minutes * 60 + seconds + milliseconds / 1000.0)
+        return total_seconds
+
+    except ValueError:
+        print(f"Error parsing timestamp: {timestamp_str}. Returning 0.0.")
+        return 0.0
+    except Exception as e:
+        print(f"An unexpected error occurred while parsing timestamp {timestamp_str}: {e}. Returning 0.0.")
+        return 0.0
+
+
+def convert_subtitle_to_list(subtitle_string):
+    lines = subtitle_string.strip().split('\n')
+
+    parsed_entries = []
+    
+    for line in lines:
+        line = line.strip()
+        if not line: # Skip empty lines
+            continue
+
+        # Find the end of the timestamp part (the closing bracket)
+        end_bracket_index = line.find(']')
+
+        if end_bracket_index == -1 or not line.startswith('['):
+            # Line doesn't look like a subtitle line with timestamp
+            print(f"Warning: Skipping line that doesn't match [MM:SS.mmm]Text format: {line}")
+            continue
+
+        # Extract timestamp string and text
+        timestamp_str = line[:end_bracket_index + 1] # Includes the brackets
+        text = line[end_bracket_index + 1:]
+
+        # Parse the timestamp string into seconds (float)
+        start_time = parse_timestamp(timestamp_str)
+
+        parsed_entries.append({'start_time': start_time, 'text': text})
+
+    result_list = []
+    num_entries = len(parsed_entries)
+
+    for i in range(num_entries):
+        start_time = parsed_entries[i]['start_time']
+        text = parsed_entries[i]['text']
+
+        end_time = None
+
+        # Rule: End time is the start time of the *next* entry minus 0.2 seconds
+        if i < num_entries - 1:
+            next_start_time = parsed_entries[i+1]['start_time']
+            end_time = next_start_time - 0.2
+        else:
+            fallback_duration = 1.5
+            end_time = start_time + fallback_duration
+
+        minimal_duration = 0.01 # A very small duration to avoid end_time <= start_time
+        if end_time <= start_time:
+             end_time = start_time + minimal_duration
+
+        # Append to result list
+        result_list.append({'timestamp': [start_time, round(end_time,2)], 'text': text})
+
+    return result_list
+
+
 class AddSubtitlesToTensor:
     """
     ComfyUI 节点，用于将字幕添加到视频帧的张量中。
     """
     @classmethod
     def INPUT_TYPES(s):
+        import os
+        font_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ChironGoRoundTC-600SB.ttf")
         return {
             "required": {
-                "images": ("IMAGE",),  
-                "subtitles": ("STRING", ),
+                "images": ("IMAGE",), 
                 "language": (["类中文字符", "English_word"], {"default": "类中文字符"}), 
                 "max_words_per_line": (
                     "INT", {"default": 12, "min": 1, "max": 30}),  
                 "font_path": (
-                    "STRING", {"default": "simhei.ttf"}),  
+                    "STRING", {"default": font_path}),  
                 "font_size": ("INT", {"default": 30, "min": 1, "max": 200}),  
                 "font_color": ("STRING", {"default": "black"}),  
                 "subtitle_background_color": (
@@ -30,6 +134,10 @@ class AddSubtitlesToTensor:
                 "width": ("INT", {"default": 1024}), 
                 "height": ("INT", {"default": 1024}),  
                 "fps": ("FLOAT", {"default": 20, "min": 1, "max": 240}),
+            },
+            "optional": {
+                "json_text": ("STRING",  {"forceInput": True}), 
+                "subtitle_text": ("STRING",  {"forceInput": True}),
             }
         }
 
@@ -42,7 +150,6 @@ class AddSubtitlesToTensor:
 
     def add_subtitles(self, 
                       images, 
-                      subtitles, 
                       language,
                       font_path, 
                       font_size, 
@@ -54,13 +161,20 @@ class AddSubtitlesToTensor:
                       max_words_per_line, 
                       subtitle_background_color, 
                       fps,
+                      subtitle_text=None,
+                      json_text=None,
                       ):
 
         if subtitle_background_color == "None":
             subtitle_background_color = None
 
+        assert subtitle_text or json_text, "Either subtitle_text or json_text must be provided."
+        if subtitle_text:
+            subtitles = convert_subtitle_to_list(subtitle_text)
+        else:
+            subtitles = ast.literal_eval(json_text)
+
         try:
-            subtitles = ast.literal_eval(subtitles)
             if not isinstance(subtitles, list):
                 raise ValueError("Subtitles must be a list of dictionaries.")
             for sub in subtitles:
