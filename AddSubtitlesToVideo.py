@@ -53,7 +53,7 @@ def parse_timestamp(timestamp_str):
         return 0.0
 
 
-def convert_subtitle_to_list(subtitle_string):
+def convert_subtitle_to_list(subtitle_string, fallback_duration):
     lines = subtitle_string.strip().split('\n')
 
     parsed_entries = []
@@ -94,12 +94,14 @@ def convert_subtitle_to_list(subtitle_string):
             next_start_time = parsed_entries[i+1]['start_time']
             end_time = next_start_time - 0.2
         else:
-            fallback_duration = 1.5
+            fallback_duration = fallback_duration
             end_time = start_time + fallback_duration
 
         minimal_duration = 0.01 # A very small duration to avoid end_time <= start_time
         if end_time <= start_time:
              end_time = start_time + minimal_duration
+        if end_time - start_time > 5:
+            end_time = round(start_time + 5, 2)
 
         # Append to result list
         result_list.append({'timestamp': [start_time, round(end_time,2)], 'text': text})
@@ -169,8 +171,9 @@ class AddSubtitlesToTensor:
             subtitle_background_color = None
 
         assert subtitle_text or json_text, "Either subtitle_text or json_text must be provided."
-        if subtitle_text:
-            subtitles = convert_subtitle_to_list(subtitle_text)
+        fallback_duration = len(images) / fps - 0.2
+        if subtitle_text: 
+            subtitles = convert_subtitle_to_list(subtitle_text, fallback_duration)
         else:
             subtitles = ast.literal_eval(json_text)
 

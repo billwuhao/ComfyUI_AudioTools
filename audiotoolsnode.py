@@ -101,6 +101,122 @@ def get_all_files(
     return file_dict if return_type == "dict" else file_paths
 
 
+from comfy.cli_args import args
+import av
+# from ComfyUI
+def save_audio(self, audio, filename_prefix="ComfyUI", format="flac", prompt=None, extra_pnginfo=None, quality="128k"):
+
+    filename_prefix += self.prefix_append
+    full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir)
+    results = []
+
+    # Prepare metadata dictionary
+    metadata = {}
+    if not args.disable_metadata:
+        if prompt is not None:
+            metadata["prompt"] = json.dumps(prompt)
+        if extra_pnginfo is not None:
+            for x in extra_pnginfo:
+                metadata[x] = json.dumps(extra_pnginfo[x])
+
+    # Opus supported sample rates
+    OPUS_RATES = [8000, 12000, 16000, 24000, 48000]
+
+    for (batch_number, waveform) in enumerate(audio["waveform"].cpu()):
+        filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
+        file = f"{filename_with_batch_num}_{counter:05}_.{format}"
+        output_path = os.path.join(full_output_folder, file)
+
+        # Use original sample rate initially
+        sample_rate = audio["sample_rate"]
+
+        # Handle Opus sample rate requirements
+        if format == "opus":
+            if sample_rate > 48000:
+                sample_rate = 48000
+            elif sample_rate not in OPUS_RATES:
+                # Find the next highest supported rate
+                for rate in sorted(OPUS_RATES):
+                    if rate > sample_rate:
+                        sample_rate = rate
+                        break
+                if sample_rate not in OPUS_RATES:  # Fallback if still not supported
+                    sample_rate = 48000
+
+            # Resample if necessary
+            if sample_rate != audio["sample_rate"]:
+                waveform = torchaudio.functional.resample(waveform, audio["sample_rate"], sample_rate)
+
+        # Create in-memory WAV buffer
+        wav_buffer = io.BytesIO()
+        torchaudio.save(wav_buffer, waveform, sample_rate, format="WAV")
+        wav_buffer.seek(0)  # Rewind for reading
+
+        # Use PyAV to convert and add metadata
+        input_container = av.open(wav_buffer)
+
+        # Create output with specified format
+        output_buffer = io.BytesIO()
+        output_container = av.open(output_buffer, mode='w', format=format)
+
+        # Set metadata on the container
+        for key, value in metadata.items():
+            output_container.metadata[key] = value
+
+        # Set up the output stream with appropriate properties
+        input_container.streams.audio[0]
+        if format == "opus":
+            out_stream = output_container.add_stream("libopus", rate=sample_rate)
+            if quality == "64k":
+                out_stream.bit_rate = 64000
+            elif quality == "96k":
+                out_stream.bit_rate = 96000
+            elif quality == "128k":
+                out_stream.bit_rate = 128000
+            elif quality == "192k":
+                out_stream.bit_rate = 192000
+            elif quality == "320k":
+                out_stream.bit_rate = 320000
+        elif format == "mp3":
+            out_stream = output_container.add_stream("libmp3lame", rate=sample_rate)
+            if quality == "V0":
+                #TODO i would really love to support V3 and V5 but there doesn't seem to be a way to set the qscale level, the property below is a bool
+                out_stream.codec_context.qscale = 1
+            elif quality == "128k":
+                out_stream.bit_rate = 128000
+            elif quality == "320k":
+                out_stream.bit_rate = 320000
+        else: #format == "flac":
+            out_stream = output_container.add_stream("flac", rate=sample_rate)
+
+
+        # Copy frames from input to output
+        for frame in input_container.decode(audio=0):
+            frame.pts = None  # Let PyAV handle timestamps
+            output_container.mux(out_stream.encode(frame))
+
+        # Flush encoder
+        output_container.mux(out_stream.encode(None))
+
+        # Close containers
+        output_container.close()
+        input_container.close()
+
+        # Write the output to file
+        output_buffer.seek(0)
+        with open(output_path, 'wb') as f:
+            f.write(output_buffer.getbuffer())
+
+        results.append({
+            "filename": file,
+            "subfolder": subfolder,
+            "type": self.type
+        })
+        counter += 1
+
+    return { "ui": { "audio": results } }
+
+
 class SaveAudioMW:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -110,8 +226,9 @@ class SaveAudioMW:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": { "audio": ("AUDIO", ),
-                              "format": (["WAV", "MP3", "FLAC"],),
+                              "format": (["MP3", "FLAC"],),
                               "filename_prefix": ("STRING", {"default": "audio/ComfyUI"}),
+                              "mp3_quality": (["V0", "128k", "320k"],{"default": "V0"}),
                               },
                 "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
                 }
@@ -123,98 +240,102 @@ class SaveAudioMW:
 
     CATEGORY = "🎤MW/MW-Audio-Tools"
 
-    def save_audio(self, audio, format, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None):
-        filename_prefix += self.prefix_append
-        full_output_folder, filename, counter, subfolder, filename_prefix = folder_paths.get_save_image_path(filename_prefix, self.output_dir)
+    def save_audio(self, audio, format, filename_prefix="ComfyUI", prompt=None, extra_pnginfo=None, mp3_quality="128k"):
 
-        results = []
-        metadata = {}
-        if prompt is not None:
-            metadata["prompt"] = json.dumps(prompt)
-        if extra_pnginfo is not None:
-            for x in extra_pnginfo:
-                metadata[x] = json.dumps(extra_pnginfo[x])
+        return save_audio(self, audio, filename_prefix, format.lower(), prompt, extra_pnginfo, quality=mp3_quality)
 
-        for (batch_number, waveform) in enumerate(audio["waveform"].cpu()):
-            filename_with_batch_num = filename.replace("%batch_num%", str(batch_number))
-            file = f"{filename_with_batch_num}_{counter:05}_.{format.lower()}"
 
-            buff = io.BytesIO()
-            torchaudio.save(buff, waveform, audio["sample_rate"], format=format)
+# # --- Function to build a file tree structure ---
+# def build_file_tree(base_path, extensions, current_path=""):
+#     """
+#     Builds a recursive tree structure of files and directories.
+#     Each node is a dictionary:
+#     { "name": "...", "type": "folder" or "file", "path": "relative_path", "children": [...] }
+#     """
+#     tree = []
+#     full_current_path = os.path.join(base_path, current_path)
+    
+#     if not os.path.isdir(full_current_path):
+#         return []
 
-            if format == "FLAC":
-                buff = self.insert_or_replace_vorbis_comment(buff, metadata)
-            elif metadata:
-                 print(("SaveAudioMW Warning: Metadata saving is currently only supported for FLAC format. "
-                        f"Skipping metadata for {format}"))
+#     # Sort entries to have folders first, then files, alphabetically
+#     entries = sorted(os.listdir(full_current_path))
+    
+#     # Separate folders and files for processing
+#     dirs = [d for d in entries if os.path.isdir(os.path.join(full_current_path, d))]
+#     files = [f for f in entries if os.path.isfile(os.path.join(full_current_path, f))]
 
-            with open(os.path.join(full_output_folder, file), 'wb') as f:
-                f.write(buff.getbuffer())
+#     for name in dirs:
+#         node_path = os.path.join(current_path, name)
+#         children = build_file_tree(base_path, extensions, node_path)
+#         # Only add folder if it has children or you want to show empty folders
+#         if children: # or True, if you want to show empty folders
+#             tree.append({
+#                 "name": name,
+#                 "type": "folder",
+#                 "path": os.path.normpath(node_path), # Store normalized relative path
+#                 "children": children
+#             })
 
-            results.append({
-                "filename": file,
-                "subfolder": subfolder,
-                "type": self.type
-            })
-            counter += 1
+#     for name in files:
+#         if any(name.lower().endswith(ext.lower()) for ext in extensions):
+#             node_path = os.path.join(current_path, name)
+#             tree.append({
+#                 "name": name,
+#                 "type": "file",
+#                 "path": os.path.normpath(node_path) # Store normalized relative path
+#             })
+#     return tree
 
-        return { "ui": { "audio": results },}
 
-    # From ComfyUI
-    def create_vorbis_comment_block(self, comment_dict, last_block):
-        vendor_string = b'ComfyUI'
-        vendor_length = len(vendor_string)
+# class LoadAudioMW:
+#     audios_dir_absolute = get_path()
+#     _audio_extensions = [".wav", ".mp3", ".flac", ".mp4", ".WAV", ".MP3", ".FLAC", ".MP4"]
+#     _file_tree_data = build_file_tree(audios_dir_absolute, _audio_extensions)
+#     @classmethod
+#     def INPUT_TYPES(s):
+#         return {
+#             "required": {
+#                 # The first element of the tuple is the data for our custom widget.
+#                 # The second element is a config dict. "widget": "HIERARCHICAL_FILE_AUDIO" is key.
+#                 "selected_audio_path": (s._file_tree_data, {"widget": "HIERARCHICAL_FILE_AUDIO"}),
+#                 "start_time_sec": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10000.0, "step": 0.01}),
+#                 "duration_sec": ("FLOAT", {"default": 5.0, "min": 0.01, "max": 10000.0, "step": 0.01}),
+#             }
+#         }
 
-        comments = []
-        for key, value in comment_dict.items():
-            comment = f"{key}={value}".encode('utf-8')
-            comments.append(struct.pack('<I', len(comment)) + comment)
+#     CATEGORY = "🎤MW/MW-Audio-Tools"
+#     RETURN_TYPES = ("AUDIO",)
+#     FUNCTION = "load"
 
-        user_comment_list_length = len(comments)
-        user_comments = b''.join(comments)
+#     def load(self, selected_audio_path, start_time_sec=0, duration_sec=5):
+#         if not selected_audio_path or selected_audio_path.startswith("ERROR:"):
+#             raise ValueError("No valid audio file selected or audio directory error.")
 
-        comment_data = struct.pack('<I', vendor_length) + vendor_string + struct.pack('<I', user_comment_list_length) + user_comments
-        if last_block:
-            id = b'\x84'
-        else:
-            id = b'\x04'
-        comment_block = id + struct.pack('>I', len(comment_data))[1:] + comment_data
+#         # selected_audio_path is the RELATIVE path from the JS widget
+#         # We need to join it with the absolute base audio directory
+#         if not LoadAudioMW.audios_dir_absolute:
+#              raise FileNotFoundError("Audio base directory is not configured.")
+             
+#         full_audio_path = os.path.join(LoadAudioMW.audios_dir_absolute, selected_audio_path)
 
-        return comment_block
+#         # --- Rest of your audio loading logic from the original example ---
+#         # import torchaudio # Make sure torchaudio is imported
+#         waveform, sample_rate = torchaudio.load(full_audio_path)
+#         waveform = waveform.unsqueeze(0)
+        
+#         start_sample = round(start_time_sec * sample_rate)
+#         num_samples_requested = round(duration_sec * sample_rate)
+#         total_samples = waveform.shape[-1]
+#         start_sample = max(0, min(start_sample, total_samples))
+#         actual_end_sample = min(start_sample + num_samples_requested, total_samples)
 
-    # From ComfyUI
-    def insert_or_replace_vorbis_comment(self, flac_io, comment_dict):
-        if len(comment_dict) == 0:
-            return flac_io
-
-        flac_io.seek(4)
-
-        blocks = []
-        last_block = False
-
-        while not last_block:
-            header = flac_io.read(4)
-            last_block = (header[0] & 0x80) != 0
-            block_type = header[0] & 0x7F
-            block_length = struct.unpack('>I', b'\x00' + header[1:])[0]
-            block_data = flac_io.read(block_length)
-
-            if block_type == 4 or block_type == 1:
-                pass
-            else:
-                header = bytes([(header[0] & (~0x80))]) + header[1:]
-                blocks.append(header + block_data)
-
-        blocks.append(self.create_vorbis_comment_block(comment_dict, last_block=True))
-
-        new_flac_io = io.BytesIO()
-        new_flac_io.write(b'fLaC')
-        for block in blocks:
-            new_flac_io.write(block)
-
-        new_flac_io.write(flac_io.read())
-        return new_flac_io
-
+#         if start_sample >= actual_end_sample:
+#             raise ValueError(f"SliceAudio: Calculated slice is empty or invalid.")
+        
+#         sliced_waveform = waveform[..., start_sample:actual_end_sample]
+#         output_audio = {"waveform": sliced_waveform, "sample_rate": sample_rate}
+#         return (output_audio,)
 
 class LoadAudioMW:
     audios_dir = get_path()
