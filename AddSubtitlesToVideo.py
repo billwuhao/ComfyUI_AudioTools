@@ -126,9 +126,9 @@ class AddSubtitlesToTensor:
                 "font_path": (
                     "STRING", {"default": font_path}),  
                 "font_size": ("INT", {"default": 30, "min": 1, "max": 200}),  
-                "font_color": ("STRING", {"default": "black"}),  
+                "font_color": ("STRING", {"default": "black", "tooltip": "HTML color or Color name"}),  
                 "subtitle_background_color": (
-                    "STRING", {"default": "#B8860B", "tooltip": "None: Do not add background color"}),
+                    "STRING", {"default": "#B8860B", "tooltip": "HTML color or Color name. None: Do not add background color"}),
                 "y_offset": (
                     "INT", {"default": 0, "min": -1000, "max": 1000, "step": 5}),
                 "x_offset": (
