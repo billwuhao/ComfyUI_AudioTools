@@ -1,4 +1,4 @@
-// filename: ComfyUI/web/extensions/minimal_pause_node.js
+// filename: ComfyUI/web/extensions/string_pause_gate_node.js
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
@@ -15,7 +15,6 @@ app.registerExtension({
         const container = document.createElement("div");
         container.style.padding = "1px";
         container.style.width = "100%";
-        // 将 'bottom' 改为 'center' 来实现水平居中
         container.style.textAlign = "center";
 
         const button = document.createElement("button");
@@ -31,16 +30,13 @@ app.registerExtension({
 
         container.appendChild(button);
 
-        const widget = node.addDOMWidget(`minimal_pause_widget_${node.id}`, "dom", container, {
+        const widget = node.addDOMWidget(`string_pause_gate_widget_${node.id}`, "dom", container, {
              // No serialize needed usually for simple buttons
         });
 
         // --- computeSize (Minimal Height) ---
         widget.computeSize = function(width) {
-            // Enough height for the button and padding
-            // Assuming your button + padding needs about 30-40px height
-            const minHeight = 35; // Adjust this value based on actual button size + padding
-            // computeSize should return [width, height]
+            const minHeight = 35; 
             return [width, minHeight];
         }
 
@@ -48,15 +44,14 @@ app.registerExtension({
         button.addEventListener("click", async () => {
             const nodeId = node.id;
             console.log(`StringPauseGateNode: 'Continue' clicked for node ${nodeId}.`);
-            button.textContent = "Continue"; // Optional feedback
-            button.disabled = true; // Disable while processing
+            button.textContent = "Continuing..."; // Optional feedback
+            button.disabled = true; // Disable while processing, then re-enable
 
             try {
-                // Call the backend endpoint to create the signal file
                 const response = await api.fetchApi("/string_pause/signal_continue", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ node_id: nodeId }), // Only need node_id
+                    body: JSON.stringify({ node_id: nodeId }),
                 });
 
                 if (!response.ok) {
@@ -64,19 +59,23 @@ app.registerExtension({
                     const errorMsg = `Error signaling continue: ${errorData.message || response.statusText} (Status: ${response.status})`;
                     console.error(`StringPauseGateNode: ${errorMsg} for node ${nodeId}`);
                     alert(errorMsg);
-                    button.textContent = "Continue"; // Restore button text on error
-                    button.disabled = false; // Re-enable
+                    // On error, re-enable button immediately
+                    button.textContent = "Continue";
+                    button.disabled = false; 
                 } else {
-                    // Backend confirmed signal - Re-queue the prompt
                     console.log(`StringPauseGateNode: Signal sent for node ${nodeId}. Re-queueing prompt.`);
                     app.queuePrompt(); // Trigger next run
-                    // Keep button disabled as workflow restarts
+                    // On success, we re-enable the button *after* queuing the prompt.
+                    // This allows for quick re-clicking if needed, but the backend will handle state.
+                    button.textContent = "Continue"; 
+                    button.disabled = false; // Always re-enable on success
                 }
             } catch (error) {
                 console.error(`StringPauseGateNode: Network error during continue for node ${nodeId}:`, error);
                 alert(`Network error during continue: ${error.message}`);
-                 button.textContent = "Continue"; // Restore on network error
-                 button.disabled = false; // Re-enable
+                // On network error, re-enable button immediately
+                button.textContent = "Continue"; 
+                button.disabled = false;
             }
         });
 
@@ -87,7 +86,6 @@ app.registerExtension({
 
 	async setup(app) {
         console.log("StringPauseGateNode: Setup.");
-		// Listen for the signal from Python to enable the button
 		api.addEventListener("string_pause_enable_button", (event) => {
 			const { node_id } = event.detail;
             console.log(`StringPauseGateNode: Received 'enable_button' event for node ${node_id}`);
@@ -96,8 +94,7 @@ app.registerExtension({
 				console.log(`StringPauseGateNode: Enabling button for node ${node_id}`);
                 node.continueButton.textContent = "Continue";
 				node.continueButton.disabled = false; // Enable the button
-                // Optional: Maybe make the node flash or something?
-                node.setDirtyCanvas(true, false); // Minor redraw might be needed
+                node.setDirtyCanvas(true, false); 
 			} else {
                 console.warn(`StringPauseGateNode: Could not find node or button for ID ${node_id} during 'enable_button' event.`);
             }

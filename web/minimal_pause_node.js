@@ -69,7 +69,8 @@ app.registerExtension({
                     // Backend confirmed signal - Re-queue the prompt
                     console.log(`MinimalPauseNode: Signal sent for node ${nodeId}. Re-queueing prompt.`);
                     app.queuePrompt(); // Trigger next run
-                    // Keep button disabled as workflow restarts
+                    button.disabled = false; // Re-enable the button
+                    // Workflow restarts, button is now re-enabled for potential subsequent manual pauses if the node is hit again.
                 }
             } catch (error) {
                 console.error(`MinimalPauseNode: Network error during continue for node ${nodeId}:`, error);

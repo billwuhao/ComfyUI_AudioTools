@@ -61,6 +61,8 @@ Examples:
 
 ## 📣 Updates
 
+[2025-05-23]⚒️: Fixed the logic issue with the pause node. Now, both serial and parallel execution of pause nodes will pause for the first time. If there is no change in the preceding node, it will automatically pass again.
+
 [2025-04-28]⚒️: Audio loading, customizable loading path, including subdirectories. 
 
 [2025-04-26]⚒️: Pause workflow anywhere.

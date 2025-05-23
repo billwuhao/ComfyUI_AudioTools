@@ -368,13 +368,22 @@ class LoadAudioMW:
                         "tooltip": "Desired duration of the slice in seconds"
                         }),
                     },
+                    "optional": {
+                        "fps": ("FLOAT", {
+                            "default": 24.0,
+                            "min": 1.0,
+                            "max": 60.0,
+                            "step": 1.0,
+                        })
+                    }
                 }
 
     CATEGORY = "🎤MW/MW-Audio-Tools"
-    RETURN_TYPES = ("AUDIO", )
+    RETURN_TYPES = ("AUDIO", "INT")
+    RETURN_NAMES = ("AUDIO", "frame_count")
     FUNCTION = "load"
 
-    def load(self, audio, start_time_sec=0, duration_sec=5):
+    def load(self, audio, start_time_sec=0, duration_sec=5, fps=24.0):
         audio_path = os.path.join(LoadAudioMW.audios_dir, audio)
         waveform, sample_rate = torchaudio.load(audio_path)
         waveform = waveform.unsqueeze(0)
@@ -408,7 +417,7 @@ class LoadAudioMW:
             "sample_rate": sample_rate
         }
         
-        return {"result": (output_audio,)}
+        return {"result": (output_audio, int(fps * duration_sec) + 1)}
 
 
 class AudioConcatenate:
@@ -533,7 +542,7 @@ class AudioConcatenate:
         # Return the output wrapped in a tuple (ComfyUI requirement)
         return (output_audio,)
 
-
+MODEL_CACHE = None
 class AudioAddWatermark:
     def __init__(self):
         if torch.backends.mps.is_available():
@@ -543,7 +552,6 @@ class AudioAddWatermark:
         else:
             device = "cpu"
         self.device = device
-        self.cached_model = None
 
     @classmethod
     def INPUT_TYPES(s):
@@ -577,16 +585,16 @@ class AudioAddWatermark:
         """Main watermark processing pipeline"""
         ckpt_path = os.path.join(models_dir, "TTS", "SilentCipher", "44_1_khz", "73999_iteration")
         config_path = os.path.join(models_dir, ckpt_path, "hparams.yaml")
-
-        if self.cached_model is None:
-            self.cached_model = silentcipher.get_model(
+        global MODEL_CACHE
+        if MODEL_CACHE is None:
+            MODEL_CACHE = silentcipher.get_model(
                 model_type="44.1k", 
                 ckpt_path=ckpt_path, 
                 config_path=config_path,
                 device=self.device,
             )
 
-        watermarker = self.cached_model
+        watermarker = MODEL_CACHE
         audio_array, sample_rate = self.load_audio(audio)
         # Ensure tensor on correct device
         audio_array = audio_array.to(self.device)
@@ -598,7 +606,7 @@ class AudioAddWatermark:
         watermark = self.verify(watermarker, audio_array, sample_rate)
         if unload_model:
             del watermarker
-            self.cached_model = None
+            MODEL_CACHE = None
             torch.cuda.empty_cache()
         
         # Move data back to CPU before return
@@ -694,8 +702,8 @@ class AudioAddWatermark:
         ckpt_path = os.path.join(models_dir, "TTS", "SilentCipher", "44_1_khz", "73999_iteration")
         config_path = os.path.join(models_dir, ckpt_path, "hparams.yaml")
 
-        if not use_cache and self.cached_model is not None:
-            return self.cached_model
+        if not use_cache and MODEL_CACHE is not None:
+            return MODEL_CACHE
         else:
             model = silentcipher.get_model(
                 model_type="44.1k", 
@@ -703,11 +711,11 @@ class AudioAddWatermark:
                 config_path=config_path,
                 device=device,
             )
-            self.cached_model = model
+            MODEL_CACHE = model
             del model
             torch.cuda.empty_cache()
             
-        return self.cached_model
+        return MODEL_CACHE
 
 
     def _parse_key(self, key_string):
