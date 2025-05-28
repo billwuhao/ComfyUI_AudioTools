@@ -2,11 +2,30 @@
 
 # Audio Processing Related ComfyUI Nodes
 
+## 📣 Updates
+
+[2025-05-27]⚒️: Add audio denoising enhancement node. Download the model [last_best_checkpoint.pt](https://huggingface.co/alibabasglab/MossFormer2_SE_48K/blob/main/last_best_checkpoint.pt), put it in the directory of `models\TTS\MossFormer2_SE_48K`.
+
+[2025-05-23]⚒️: Fixed the logic issue with the pause node. Now, both serial and parallel execution of pause nodes will pause for the first time. If there is no change in the preceding node, it will automatically pass again.
+
+[2025-04-28]⚒️: Audio loading, customizable loading path, including subdirectories. 
+
+[2025-04-26]⚒️: Pause workflow anywhere.
+
+[2025-04-25]⚒️: String editing. 
+
+[2025-03-28]⚒️: Added watermark embedding node.
+
+[2025-03-26]⚒️: Released version v1.0.0.
+
+## 📖 Introduction
+
 Audio is the bridge connecting text, video, and images. Videos without audio or text are bland. This project currently includes the following main nodes:
+- Audio denoising enhancement
 - Pause workflow anywhere
 - Audio loading, customizable loading path, including subdirectories
   - Please rename the file `extra_help_file.yaml.example` to `extra_help_file.yaml` and remove the annotation `# `. Add a custom loading directory such as `audios_dir: D:\AIGC\ComfyUI-Data\audios_input`, Linux is `/`.
-- String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution
+- String editing
 - Automatically add subtitles to videos
 - Arbitrary time scale audio cropping
 - Audio volume, speed, pitch, echo processing, etc.
@@ -24,21 +43,13 @@ Examples:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-28_00-34-19.png)
 
--  String show and editing. If editing is enabled, the workflow will pause execution. After editing, you can click "Continue Workflow" to continue execution:
+-  String editing:
 
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-04-25_15-48-54.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-05-27_16-35-09.png)
 
 - Add subtitles to video:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_14-00-28.png)
-
-- Combine [ComfyUI_EraX-WoW-Turbo](https://github.com/billwuhao/ComfyUI_EraX-WoW-Turbo) for automatic speech recognition, and then add subtitles to the video:
-
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-33-54.png)
-
-- Combine [ComfyUI_EraX-WoW-Turbo](https://github.com/billwuhao/ComfyUI_EraX-WoW-Turbo), [ComfyUI_gemmax](https://github.com/billwuhao/ComfyUI_gemmax), [ComfyUI_SparkTTS](https://github.com/billwuhao/ComfyUI_SparkTTS), [ComfyUI-LatentSyncWrapper](https://github.com/ShmuelRonen/ComfyUI-LatentSyncWrapper) for automatic speech recognition, automatic translation, automatic voice cloning, automatic lip sync, automatic subtitle addition to video (detailed example workflow [workflow-examples](./workflow-examples)):
-
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250326001631.png)
 
 - Arbitrary time scale cropping of audio:
 
@@ -48,7 +59,7 @@ Examples:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-02-40.png)
 
-- Remove silent parts from audio and recording:
+- Recording and removing silent parts from audio:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-25_13-20-30.png)
 
@@ -56,22 +67,7 @@ Examples:
 
 ![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-03-28_22-18-04.png)
 
-  1, To use this node, download all [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) models and place them in the `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` directory.
-  2, And execute `pip install git+https://github.com/SesameAILabs/silentcipher` install silentcipher.
-
-## 📣 Updates
-
-[2025-05-23]⚒️: Fixed the logic issue with the pause node. Now, both serial and parallel execution of pause nodes will pause for the first time. If there is no change in the preceding node, it will automatically pass again.
-
-[2025-04-28]⚒️: Audio loading, customizable loading path, including subdirectories. 
-
-[2025-04-26]⚒️: Pause workflow anywhere.
-
-[2025-04-25]⚒️: String show and editing. 
-
-[2025-03-28]⚒️: Added watermark embedding node.
-
-[2025-03-26]⚒️: Released version v1.0.0.
+  - To use this node, download all [SilentCipher](https://huggingface.co/Sony/SilentCipher/tree/main/44_1_khz/73999_iteration) models and place them in the `ComfyUI\models\TTS\SilentCipher\44_1_khz\73999_iteration` directory.
 
 ## Installation
 
@@ -86,3 +82,7 @@ pip install -r requirements.txt
 # python_embeded
 ./python_embeded/python.exe -m pip install -r requirements.txt
 ```
+
+## Acknowledgement
+
+- [ClearerVoice-Studio](https://github.com/modelscope/ClearerVoice-Studio)

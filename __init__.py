@@ -2,10 +2,10 @@ from .audiotoolsnode import *
 from .minimal_pause_node import MinimalPauseNode
 from .AddSubtitlesToVideo import AddSubtitlesToTensor
 from .MWAudioRecorderAT import AudioRecorderAT
-from .stringnodes import StringDisplayNode, StringPauseGateNode
+from .clearvoicenode import ClearVoiceRun
 
 NODE_CLASS_MAPPINGS = {
-    "SaveAudioMW": SaveAudioMW,
+    "ClearVoiceRun": ClearVoiceRun,
     "LoadAudioMW": LoadAudioMW,
     "MinimalPauseNode": MinimalPauseNode,
     "AudioConcatenate": AudioConcatenate,
@@ -17,14 +17,13 @@ NODE_CLASS_MAPPINGS = {
     "AudioRecorderAT": AudioRecorderAT,
     "AddSubtitlesToVideo": AddSubtitlesToTensor,
     "MultiLinePromptAT": MultiLinePromptAT,
-    "StringDisplayNode": StringDisplayNode,
-    "StringPauseGateNode": StringPauseGateNode,
+    "StringEditNode": StringEditNode,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "SaveAudioMW": "Save Audio @MW",
+    "ClearVoiceRun": "Clear Voice @MW",
     "LoadAudioMW": "Load Audio @MW",
-    "MinimalPauseNode": "Pause Node",
+    "MinimalPauseNode": "Pause Node @MW",
     "AudioConcatenate": "Audio Concatenate",
     "AudioAddWatermark": "Audio Watermark Embedding",
     "AdjustAudio": "Adjust Audio",
@@ -34,8 +33,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "AudioRecorderAT": "MW Audio Recorder",
     "AddSubtitlesToVideo": "Add Subtitles To Video",
     "MultiLinePromptAT": "Multi-Line Prompt",
-    "StringDisplayNode": "📺 String Viewer",
-    "StringPauseGateNode": "⏸ String Pause Gate",
+    "StringEditNode": "String Edit",
 }
 
 __all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']

@@ -1,4 +1,6 @@
 sox
 librosa
-PyYAML
+pydub
+pyyaml
+rotary-embedding-torch
 git+https://github.com/SesameAILabs/silentcipher 

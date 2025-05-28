@@ -1,7 +1,7 @@
 [project]
 name = "audiotools"
 description = "A ComfyUI node containing multiple audio processing tools."
-version = "1.1.5"
+version = "1.1.6"
 license = {file = "LICENSE"}
 dependencies = ["sox", "librosa"]
 
