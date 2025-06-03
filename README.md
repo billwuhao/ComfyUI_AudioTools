@@ -87,7 +87,7 @@ Examples:
 
 ## Installation
 
-Install sox and add it to your system's PATH.
+Install [sox](https://sourceforge.net/projects/sox/) and add it to your system's PATH.
 
 ```
 cd ComfyUI/custom_nodes

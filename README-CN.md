@@ -87,7 +87,7 @@
 
 ## 安装
 
-安装 sox 并添加到系统 path.
+安装 [sox](https://sourceforge.net/projects/sox/) 并添加到系统 path.
 
 ```
 cd ComfyUI/custom_nodes
