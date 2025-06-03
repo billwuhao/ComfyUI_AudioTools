@@ -4,6 +4,8 @@
 
 ## 📣 更新
 
+[2025-06-03]⚒️: v1.2.0. 增加 音乐/人声分离, 人声提取, 音频合并节点. 下载模型 [TIGER-speech](https://hf-mirror.com/JusperLee/TIGER-speech/tree/main), [TIGER-DnR](https://hf-mirror.com/JusperLee/TIGER-DnR/tree/main), 整个文件夹放到 `models\TTS` 目录下.
+
 [2025-05-27]⚒️: 增加音频去噪增强节点. 下载模型 [last_best_checkpoint.pt](https://huggingface.co/alibabasglab/MossFormer2_SE_48K/blob/main/last_best_checkpoint.pt), 放到 `models\TTS\MossFormer2_SE_48K` 目录下.
 
 [2025-05-23]⚒️: 修复暂停节点逻辑问题, 现在暂停节点串联/并联首次执行都会暂停, 再次执行如果前置节点无变化自动通过. 
@@ -21,6 +23,8 @@
 ## 📖 介绍
 
 音频是连接文本, 视频, 图像的桥梁, 没有音频或文字的视频是无味的. 这个项目目前包括以下几个主要节点:
+
+- 音乐/人声分离, 人声提取, 音频合并, 音频连接
 - 音频去噪增强
 - 任何地方暂停工作流
 - 音频加载, 可自定义加载路径, 包含子目录
@@ -35,9 +39,21 @@
 
 示例:
 
-- 任何地方暂停工作流:
+- 音乐/人声分离:
 
-![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/20250426115357.png)
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-06-03_23-21-05.png)
+
+- 人声分离提取:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-06-03_22-45-13.png)
+
+- 合并音频:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-06-03_20-50-29.png)
+
+- 去噪增强:
+
+![](https://github.com/billwuhao/ComfyUI_AudioTools/blob/main/images/2025-06-03_20-46-28.png)
 
 - 音频加载:
 
@@ -86,3 +102,4 @@ pip install -r requirements.txt
 ## 鸣谢
 
 - [ClearerVoice-Studio](https://github.com/modelscope/ClearerVoice-Studio)
+- [TIGER](https://github.com/JusperLee/TIGER)

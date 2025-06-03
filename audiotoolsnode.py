@@ -314,6 +314,7 @@ class AudioAddWatermark:
     def watermarkgen(self, audio, add_watermark, key, unload_model):
         """Main watermark processing pipeline"""
         ckpt_path = os.path.join(models_dir, "TTS", "SilentCipher", "44_1_khz", "73999_iteration")
+        os.makedirs(ckpt_path, exist_ok=True)
         config_path = os.path.join(models_dir, ckpt_path, "hparams.yaml")
         global MODEL_CACHE
         if MODEL_CACHE is None:

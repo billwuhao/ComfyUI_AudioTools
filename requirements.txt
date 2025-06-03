@@ -3,4 +3,5 @@ librosa
 pydub
 pyyaml
 rotary-embedding-torch
+typeguard
 git+https://github.com/SesameAILabs/silentcipher 
