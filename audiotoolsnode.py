@@ -679,6 +679,7 @@ class StringEditNode:
             "optional": {
                 "paste_edit_text": ("STRING", {"multiline": True, "default": "",}),
                 "split_tag": ("STRING", {"default": "",}),
+                "form_right": ("BOOLEAN", {"default": False}),
              },
         }
 
@@ -688,12 +689,16 @@ class StringEditNode:
     CATEGORY = "🎤MW/MW-Audio-Tools" 
     OUTPUT_NODE = False
 
-    def edit_text(self, text, split_tag="", paste_edit_text="", merge_text=False):
+    def edit_text(self, text, split_tag="", paste_edit_text="", form_right=False):
         str_1, str_2, str_3, str_4, str_5 = text, "", "", paste_edit_text, ""
         str_5 = text + paste_edit_text
         
         if split_tag != "" and text.find(split_tag) > 0:
-            parts = text.split(split_tag, 1)
-            str_2, str_3 = parts[0].strip(), parts[1].strip()
+            if form_right:
+                parts = text.rsplit(split_tag, 1)
+                str_2, str_3 = parts[0].strip(), parts[1].strip()
+            else:
+                parts = text.split(split_tag, 1)
+                str_2, str_3 = parts[0].strip(), parts[1].strip()
 
         return (str_1, str_2, str_3, str_4, str_5)
