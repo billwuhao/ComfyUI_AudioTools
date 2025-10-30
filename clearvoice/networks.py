@@ -30,9 +30,9 @@ MAX_WAV_VALUE = 32768.0
 class SpeechModel:
     """
     The SpeechModel class is a base class designed to handle speech processing tasks,
-    such as loading, processing, and decoding audio data. It initializes the computational 
-    device (CPU or GPU) and holds model-related attributes. The class is flexible and intended 
-    to be extended by specific speech models for tasks like speech enhancement, speech separation, 
+    such as loading, processing, and decoding audio data. It initializes the computational
+    device (CPU or GPU) and holds model-related attributes. The class is flexible and intended
+    to be extended by specific speech models for tasks like speech enhancement, speech separation,
     target speaker extraction etc.
 
     Attributes:
@@ -45,7 +45,7 @@ class SpeechModel:
 
     def __init__(self, args):
         """
-        Initializes the SpeechModel class by determining the computation device 
+        Initializes the SpeechModel class by determining the computation device
         (GPU or CPU) to be used for running the model, based on system availability.
 
         Args:
@@ -81,29 +81,41 @@ class SpeechModel:
 
     def get_free_gpu(self):
         """
-        Identifies the GPU with the most free memory using 'nvidia-smi' and returns its index.
+        Identifies the GPU with the most free memory.
 
-        This function queries the available GPUs on the system and determines which one has 
-        the highest amount of free memory. It uses the `nvidia-smi` command-line tool to gather 
-        GPU memory usage data. If successful, it returns the index of the GPU with the most free memory.
-        If the query fails or an error occurs, it returns None.
+        This function queries the available GPUs on the system and determines which one has
+        the highest amount of free memory. It uses either the `nvidia-smi` (NVidia) or `rocm-smi` (AMD)
+        command-line tool to gather GPU memory usage data. If successful, it returns the index of the
+        GPU with the most free memory. If there is no tool available, if the query fails or an error
+        occurs, it returns None.
 
         Returns:
         int: Index of the GPU with the most free memory, or None if no GPU is found or an error occurs.
         """
         try:
-            # Run nvidia-smi to query GPU memory usage and free memory
-            result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used,memory.free', '--format=csv,nounits,noheader'], stdout=subprocess.PIPE)
-            gpu_info = result.stdout.decode('utf-8').strip().split('\n')
+            rocm = False
+            if os.path.exists('/usr/bin/nvidia-smi'):
+                # Run nvidia-smi to query GPU memory usage and free memory
+                result = subprocess.run(['nvidia-smi', '--query-gpu=memory.used,memory.free', '--format=csv,nounits,noheader'], stdout=subprocess.PIPE)
+                gpu_info = result.stdout.decode('utf-8').strip().split('\n')
+            elif os.path.exists('/usr/bin/rocm-smi'):
+                # Run rocm-smi for AMD GPUs
+                result = subprocess.run(['rocm-smi', '--csv', '--alldevices', '--showmeminfo', 'VRAM'], stdout=subprocess.PIPE)
+                gpu_info = [line.strip() for line in result.stdout.decode('utf-8').strip().split('\n')][1:]
+                rocm = True
+            else:
+                return None
 
             free_gpu = None
             max_free_memory = 0
             for i, info in enumerate(gpu_info):
-                used, free = map(int, info.split(','))
+                if rocm == True: used, free = map(int, info.split(',')[1:])
+                else: used, free = map(int, info.split(','))
                 if free > max_free_memory:
                     max_free_memory = free
                     free_gpu = i
             return free_gpu
+
         except Exception as e:
             print(f"Error finding free GPU: {e}")
             return None
@@ -119,7 +131,7 @@ class SpeechModel:
             return True
         except:
             return False
-            
+
     def load_model(self):
         """
         Loads a pre-trained model checkpoints from a specified directory. It checks for
@@ -168,11 +180,11 @@ class SpeechModel:
         Decodes the input audio data using the loaded model and ensures the output matches the original audio length.
 
         This method processes the audio through a speech model (e.g., for enhancement, separation, etc.),
-        and truncates the resulting audio to match the original input's length. The method supports multiple speakers 
+        and truncates the resulting audio to match the original input's length. The method supports multiple speakers
         if the model handles multi-speaker audio.
 
         Returns:
-        output_audio: The decoded audio after processing, truncated to the input audio length. 
+        output_audio: The decoded audio after processing, truncated to the input audio length.
                   If multi-speaker audio is processed, a list of truncated audio outputs per speaker is returned.
         """
         # Decode the audio using the loaded model on the given device (e.g., CPU or GPU)
@@ -188,7 +200,7 @@ class SpeechModel:
                 # Single output, truncate to input audio length
                 output_audio = output_audio[:self.data['audio_len']]
             output_audios.append(output_audio)
-            
+
         if isinstance(output_audios[0], list):
             output_audios_np = []
             for spk in range(self.args.num_spks):
@@ -203,20 +215,20 @@ class SpeechModel:
 
     def process(self, online_write=False, output_path=None):
         """
-        Load and process audio files from the specified input path. Optionally, 
+        Load and process audio files from the specified input path. Optionally,
         write the output audio files to the specified output directory.
-        
+
         Args:
             online_write (bool): Whether to write the processed audio to disk in real-time.
-            output_path (str): Optional path for writing output files. If None, output 
+            output_path (str): Optional path for writing output files. If None, output
                                will be stored in self.result.
-        
+
         Returns:
-            dict or ndarray: Processed audio results either as a dictionary or as a single array, 
-                             depending on the number of audio files processed. 
+            dict or ndarray: Processed audio results either as a dictionary or as a single array,
+                             depending on the number of audio files processed.
                              Returns None if online_write is enabled.
         """
-        
+
         self.result = {}
         data_reader = DataReader(self.args)  # Initialize a data reader to load the audio files
 
@@ -228,7 +240,7 @@ class SpeechModel:
             # Create the output directory if it does not exist
             if not os.path.isdir(output_wave_dir):
                 os.makedirs(output_wave_dir)
-        
+
         num_samples = len(data_reader)  # Get the total number of samples to process
         print(f'Running {self.name} ...')  # Display the model being used
 
@@ -243,7 +255,7 @@ class SpeechModel:
                 self.data['id'] = wav_id
                 self.data['audio_len'] = input_len
                 self.data.update(audio_info)
-                
+
                 # Perform the audio decoding/processing
                 output_audios = self.decode()
 
@@ -254,7 +266,7 @@ class SpeechModel:
                             output_audios[:,i] = output_audios[:,i] * scalars[i]
                     else:
                             output_audios = output_audios * scalars[0]
-                    
+
                 if online_write:
                     # If online writing is enabled, save the output audio to files
                     if isinstance(output_audios, list):
@@ -269,7 +281,7 @@ class SpeechModel:
                 else:
                     # If not writing to disk, store the output in the result dictionary
                     self.result[wav_id] = output_audios
-            
+
             # Return the processed results if not writing to disk
             if not online_write:
                 if len(self.result) == 1:
@@ -284,7 +296,7 @@ class SpeechModel:
         This function writes an audio signal to an output file, applying necessary transformations
         such as resampling, channel handling, and format conversion based on the provided parameters
         and the instance's internal settings.
-        
+
         Args:
             output_path (str): The file path where the audio will be saved.
             key (str, optional): The key used to retrieve audio from the internal result dictionary
@@ -294,7 +306,7 @@ class SpeechModel:
             audio (numpy.ndarray, optional): A numpy array containing the audio data to be written.
                                  If provided, key and spk are ignored.
         """
-        
+
         if audio is not None:
             if spk is not None:
                 result_ = audio[spk]
@@ -305,7 +317,7 @@ class SpeechModel:
                 result_ = self.result[key][spk]
             else:
                 result_ = self.result[key]
-                
+
         if self.data['sample_rate'] != self.args.sampling_rate:
             if self.data['channels'] == 2:
                 left_channel = librosa.resample(result_[0,:], orig_sr=self.args.sampling_rate, target_sr=self.data['sample_rate'])
@@ -320,7 +332,7 @@ class SpeechModel:
                 result = np.vstack((left_channel, right_channel)).T
             else:
                 result = result_[0,:]
-                
+
         if self.data['sample_width'] == 4: ##32 bit float
             MAX_WAV_VALUE = 2147483648.0
             np_type = np.int32
@@ -331,7 +343,7 @@ class SpeechModel:
             self.data['sample_width'] = 2 ##16 bit int
             MAX_WAV_VALUE = 32768.0
             np_type = np.int16
-                        
+
         result = result * MAX_WAV_VALUE
         result = result.astype(np_type)
         audio_segment = AudioSegment(
@@ -342,13 +354,13 @@ class SpeechModel:
         )
         audio_format = 'ipod' if self.data['ext'] in ['m4a', 'aac'] else self.data['ext']
         audio_segment.export(output_path, format=audio_format)
-                    
+
     def write(self, output_path, add_subdir=False, use_key=False):
         """
         Write the processed audio results to the specified output path.
 
         Args:
-            output_path (str): The directory or file path where processed audio will be saved. If not 
+            output_path (str): The directory or file path where processed audio will be saved. If not
                                provided, defaults to self.args.output_dir.
             add_subdir (bool): If True, appends the model name as a subdirectory to the output path.
             use_key (bool): If True, uses the result dictionary's keys (audio file IDs) for filenames.
@@ -400,13 +412,13 @@ class SpeechModel:
                         self.write_audio(output_file, key, spk)
                 else:
                     self.write_audio(output_path, key)
-                    
+
 
 class CLS_MossFormer2_SE_48K(SpeechModel):
     """
-    A subclass of SpeechModel that implements the MossFormer2 architecture for 
+    A subclass of SpeechModel that implements the MossFormer2 architecture for
     48 kHz speech enhancement.
-    
+
     Args:
         args (Namespace): The argument parser containing model configurations and paths.
     """
@@ -414,21 +426,21 @@ class CLS_MossFormer2_SE_48K(SpeechModel):
     def __init__(self, args):
         # Initialize the parent SpeechModel class
         super(CLS_MossFormer2_SE_48K, self).__init__(args)
-        
+
         # Import the MossFormer2 speech enhancement model for 48 kHz
         from .models.mossformer2_se.mossformer2_se_wrapper import MossFormer2_SE_48K
-        
+
         # Initialize the model
         self.model = MossFormer2_SE_48K(args).model
         self.name = 'MossFormer2_SE_48K'
-        
+
         # Load pre-trained model checkpoint
         self.load_model()
-        
+
         # Move model to the appropriate device (GPU/CPU)
         if args.use_cuda == 1:
             self.model.to(self.device)
-        
+
         # Set the model to evaluation mode (no gradient calculation)
         self.model.eval()
 

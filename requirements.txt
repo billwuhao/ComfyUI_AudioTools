@@ -4,4 +4,8 @@ pydub
 pyyaml
 rotary-embedding-torch
 typeguard
-git+https://github.com/SesameAILabs/silentcipher 
+git+https://github.com/SesameAILabs/silentcipher
+soxr==0.5.0
+torch-complex
+pytorch-lightning
+rich
